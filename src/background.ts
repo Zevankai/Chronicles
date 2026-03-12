@@ -35,7 +35,6 @@ OBR.onReady(async () => {
     embed: {
       url: '/index.html',
       height: 600,
-      width: 350,
     },
   });
 
