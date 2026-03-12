@@ -17,6 +17,28 @@ function getBadgeText(data: AnyTokenData): string {
 OBR.onReady(async () => {
   console.log('Chronicles background script ready');
 
+  OBR.contextMenu.create({
+    id: `${TOKEN_NAMESPACE}/menu/open`,
+    icons: [
+      {
+        icon: '/icon.svg',
+        label: 'Chronicles',
+        filter: {
+          every: [
+            { key: 'type', value: 'IMAGE' },
+            { key: 'layer', value: 'CHARACTER', coordinator: '||' },
+            { key: 'layer', value: 'MOUNT' },
+          ],
+        },
+      },
+    ],
+    embed: {
+      url: '/index.html',
+      height: 600,
+      width: 350,
+    },
+  });
+
   // Monitor token changes and log badge text for HP/status tracking.
   // Badge text can be used by the room GM to track health at a glance.
   OBR.scene.items.onChange((items: OBRItem[]) => {

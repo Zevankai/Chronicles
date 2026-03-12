@@ -11,17 +11,5 @@
     "popover": "/index.html",
     "height": 600,
     "width": 350
-  },
-  "contextMenu": [
-    {
-      "id": "chronicles-token",
-      "label": "Chronicles",
-      "icon": "/icon.svg",
-      "embed": {
-        "url": "/index.html",
-        "height": 600,
-        "width": 350
-      }
-    }
-  ]
+  }
 }
