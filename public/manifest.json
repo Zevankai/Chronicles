@@ -1,0 +1,28 @@
+{
+  "name": "Chronicles",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "A complete D&D 5e token management extension for Owlbear Rodeo",
+  "author": "Zevankai",
+  "icon": "/icon.svg",
+  "action": {
+    "title": "Chronicles",
+    "popover": {
+      "url": "/index.html",
+      "height": 600,
+      "width": 350
+    }
+  },
+  "contextMenu": [
+    {
+      "id": "chronicles-token",
+      "label": "Chronicles",
+      "icon": "/icon.svg",
+      "embed": {
+        "url": "/index.html",
+        "height": 600,
+        "width": 350
+      }
+    }
+  ]
+}
