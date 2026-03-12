@@ -7,11 +7,10 @@
   "icon": "/icon.svg",
   "action": {
     "title": "Chronicles",
-    "popover": {
-      "url": "/index.html",
-      "height": 600,
-      "width": 350
-    }
+    "icon": "/icon.svg",
+    "popover": "/index.html",
+    "height": 600,
+    "width": 350
   },
   "contextMenu": [
     {
