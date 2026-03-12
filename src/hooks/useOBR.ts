@@ -51,18 +51,17 @@ export function useSelectedItems() {
   useEffect(() => {
     OBR.onReady(async () => {
       const selection = await OBR.player.getSelection();
-      const items = selection
-        ? await OBR.scene.items.getItems(selection)
-        : [];
+      const items = await OBR.scene.items.getItems(
+        (item) => (selection ?? []).includes(item.id)
+      );
       setSelectedItems(items);
 
       OBR.player.onChange(async (player: Player) => {
-        if (player.selection) {
-          const selected = await OBR.scene.items.getItems(player.selection);
-          setSelectedItems(selected);
-        } else {
-          setSelectedItems([]);
-        }
+        const sel = player.selection ?? [];
+        const selected = await OBR.scene.items.getItems(
+          (item) => sel.includes(item.id)
+        );
+        setSelectedItems(selected);
       });
     });
   }, []);

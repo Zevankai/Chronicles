@@ -12,7 +12,7 @@ interface TabPanelProps {
 }
 
 export function TabPanel({ tabs, children, defaultTab }: TabPanelProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id);
+  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id || '');
 
   const activeIndex = tabs.findIndex((t) => t.id === activeTab);
 
