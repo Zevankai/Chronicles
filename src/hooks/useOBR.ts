@@ -50,9 +50,10 @@ export function useSelectedItems() {
 
   useEffect(() => {
     OBR.onReady(async () => {
-      const items = await OBR.scene.items.getItems((item) =>
-        OBR.player.getSelection().then((sel) => sel?.includes(item.id) ?? false)
-      );
+      const selection = await OBR.player.getSelection();
+      const items = selection
+        ? await OBR.scene.items.getItems(selection)
+        : [];
       setSelectedItems(items);
 
       OBR.player.onChange(async (player: Player) => {
