@@ -13,6 +13,8 @@ interface TradeParticipant {
 interface TradeModalProps {
   initiator: TradeParticipant;
   target: TradeParticipant;
+  /** Whether the current user is the trade initiator (left side). Defaults to true. */
+  currentIsInitiator?: boolean;
   onConfirm: (
     initiatorGives: { items: { item: Item; qty: number }[]; coins: Coins },
     targetGives: { items: { item: Item; qty: number }[]; coins: Coins }
@@ -76,12 +78,14 @@ function ItemDetailModal({ item, onClose }: { item: Item; onClose: () => void })
   );
 }
 
-export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModalProps) {
+export function TradeModal({ initiator, target, currentIsInitiator = true, onConfirm, onClose }: TradeModalProps) {
   const [initiatorItems, setInitiatorItems] = useState<{ item: Item; qty: number }[]>([]);
   const [targetItems, setTargetItems] = useState<{ item: Item; qty: number }[]>([]);
   const [initiatorCoins, setInitiatorCoins] = useState<Coins>({ cp: 0, sp: 0, gp: 0, pp: 0 });
   const [targetCoins, setTargetCoins] = useState<Coins>({ cp: 0, sp: 0, gp: 0, pp: 0 });
   const [inspectItem, setInspectItem] = useState<Item | null>(null);
+  const [initiatorConfirmed, setInitiatorConfirmed] = useState(false);
+  const [targetConfirmed, setTargetConfirmed] = useState(false);
 
   const addItem = (
     item: Item,
@@ -104,12 +108,27 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
     setItems(items.filter((x) => x.item.id !== itemId));
   };
 
+  // Reset confirmations when offers change
+  const handleInitiatorItemsChange = (setter: (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]) => {
+    setInitiatorConfirmed(false);
+    setTargetConfirmed(false);
+    setInitiatorItems(setter);
+  };
+
+  const handleTargetItemsChange = (setter: (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]) => {
+    setInitiatorConfirmed(false);
+    setTargetConfirmed(false);
+    setTargetItems(setter);
+  };
+
   const handleConfirm = () => {
     onConfirm(
       { items: initiatorItems, coins: initiatorCoins },
       { items: targetItems, coins: targetCoins }
     );
   };
+
+  const bothConfirmed = initiatorConfirmed && targetConfirmed;
 
   const renderCoins = (coins: Coins) => (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
@@ -136,13 +155,16 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
     items: { item: Item; qty: number }[],
     setItems: React.Dispatch<React.SetStateAction<{ item: Item; qty: number }[]>>,
     coins: Coins,
-    setCoins: React.Dispatch<React.SetStateAction<Coins>>
+    setCoins: React.Dispatch<React.SetStateAction<Coins>>,
+    isMySide: boolean,
+    confirmed: boolean,
+    onToggleConfirm: () => void
   ) => (
     <div className="trade-participant">
       <div className="section-header">{participant.name}</div>
 
       <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6 }}>
-        Click item to offer:
+        {isMySide ? 'Click item to offer:' : 'View only (🔍 to inspect):'}
       </div>
 
       {/* Source inventory */}
@@ -162,8 +184,13 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
             }}
           >
             <span
-              style={{ cursor: 'pointer', flex: 1 }}
-              onClick={() => addItem(item, setItems, items)}
+              style={{
+                cursor: isMySide ? 'pointer' : 'default',
+                flex: 1,
+                color: isMySide ? 'var(--color-text)' : 'var(--color-text-muted)',
+              }}
+              onClick={isMySide ? () => addItem(item, setItems, items) : undefined}
+              title={isMySide ? 'Click to add to offer' : undefined}
             >
               {item.name}
             </span>
@@ -193,16 +220,45 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
             <span>{x.item.name} ×{x.qty}</span>
             <div style={{ display: 'flex', gap: 2 }}>
               <button className="btn-icon" style={{ fontSize: 11 }} onClick={() => setInspectItem(x.item)}>🔍</button>
-              <button className="btn-icon" onClick={() => removeItem(x.item.id, setItems, items)}>✕</button>
+              {isMySide && (
+                <button className="btn-icon" onClick={() => removeItem(x.item.id, setItems, items)}>✕</button>
+              )}
             </div>
           </div>
         ))
       )}
 
-      <div style={{ marginTop: 6 }}>
-        <div className="field-label">Coins to offer:</div>
-        {renderCoins(coins)}
-        <CoinDisplay coins={coins} onChange={setCoins} />
+      {isMySide && (
+        <div style={{ marginTop: 6 }}>
+          <div className="field-label">Coins to offer:</div>
+          {renderCoins(coins)}
+          <CoinDisplay coins={coins} onChange={(c) => { setInitiatorConfirmed(false); setTargetConfirmed(false); setCoins(c); }} />
+        </div>
+      )}
+      {!isMySide && coins && (
+        <div style={{ marginTop: 6 }}>
+          <div className="field-label">Coins offered:</div>
+          {renderCoins(coins)}
+        </div>
+      )}
+
+      {/* Per-side confirmation */}
+      <div style={{ marginTop: 8, borderTop: '1px solid var(--color-border-light)', paddingTop: 6 }}>
+        <label style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          cursor: 'pointer',
+          fontSize: 12,
+          color: confirmed ? 'var(--color-success)' : 'var(--color-text)',
+        }}>
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={onToggleConfirm}
+          />
+          {confirmed ? '✅ Confirmed' : 'Confirm offer'}
+        </label>
       </div>
     </div>
   );
@@ -216,14 +272,41 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 12, alignItems: 'start' }}>
-          {renderSide(initiator, initiatorItems, setInitiatorItems, initiatorCoins, setInitiatorCoins)}
+          {renderSide(
+            initiator, initiatorItems,
+            (s) => handleInitiatorItemsChange(s as (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]),
+            initiatorCoins, setInitiatorCoins,
+            currentIsInitiator,
+            initiatorConfirmed,
+            () => setInitiatorConfirmed((v) => !v)
+          )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, paddingTop: 40 }}>⇌</div>
-          {renderSide(target, targetItems, setTargetItems, targetCoins, setTargetCoins)}
+          {renderSide(
+            target, targetItems,
+            (s) => handleTargetItemsChange(s as (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]),
+            targetCoins, setTargetCoins,
+            !currentIsInitiator,
+            targetConfirmed,
+            () => setTargetConfirmed((v) => !v)
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+        {!bothConfirmed && (
+          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--color-text-muted)', marginTop: 8 }}>
+            Both parties must confirm before the trade can be executed.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleConfirm}>Confirm Trade</button>
+          <button
+            className="btn btn-primary"
+            onClick={handleConfirm}
+            disabled={!bothConfirmed}
+            title={!bothConfirmed ? 'Both parties must confirm' : undefined}
+          >
+            Execute Trade
+          </button>
         </div>
       </div>
 

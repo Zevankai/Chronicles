@@ -285,9 +285,11 @@ export interface PlayerData {
   imageUrl: string;
   coverPhotoUrl: string;
   playerClass: string;
+  subclass?: string; // optional subclass (e.g. "Champion", "Life Domain")
   race: string;
   level: number;
   ownerId?: string; // OBR player ID
+  spellcastingClass?: string; // lowercase class name for spellcasting lookup (defaults to playerClass)
 
   // Combat Stats
   currentHp: number;
@@ -570,6 +572,7 @@ export interface RoomMetadata {
   exhaustionConfig: ExhaustionLevel[];
   activeTrades?: Record<string, string>; // tokenId -> playerIdTrading
   pendingMerchantTrades?: PendingMerchantTrade[];
+  pendingPlayerTrades?: TradeSession[]; // player-to-player trades pending dual confirmation
   version: number;
 }
 

@@ -279,19 +279,19 @@ export default function App() {
                         <img src={playerToken.imageUrl || state.tokenImagesMap[id]} alt={playerToken.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : <span style={{ fontSize: 18 }}>👤</span>}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 'bold', fontSize: 13 }}>{playerToken.name || 'Unnamed'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                        {[playerToken.race, playerToken.playerClass, playerToken.level ? `Lv ${playerToken.level}` : ''].filter(Boolean).join(' · ')}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: 13 }}>{playerToken.name || 'Unnamed'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                          {[playerToken.race, playerToken.subclass || null, playerToken.playerClass, playerToken.level ? `Lv ${playerToken.level}` : ''].filter(Boolean).join(' · ')}
+                        </div>
+                        <div style={{ fontSize: 11, display: 'flex', gap: 8, marginTop: 2 }}>
+                          <span style={{ color: playerToken.currentHp <= playerToken.maxHp * 0.3 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                            ❤️ {playerToken.currentHp}/{playerToken.maxHp}
+                          </span>
+                          <span>🛡 AC {playerToken.ac}</span>
+                          {playerToken.inspiration && <span style={{ color: 'var(--color-gold)' }}>⭐ Inspired</span>}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 11, display: 'flex', gap: 8, marginTop: 2 }}>
-                        <span style={{ color: playerToken.currentHp <= playerToken.maxHp * 0.3 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                          ❤️ {playerToken.currentHp}/{playerToken.maxHp}
-                        </span>
-                        <span>🛡 AC {playerToken.ac}</span>
-                        {playerToken.inspiration && <span style={{ color: 'var(--color-gold)' }}>⭐ Inspired</span>}
-                      </div>
-                    </div>
                   </button>
                 ))}
               </div>
