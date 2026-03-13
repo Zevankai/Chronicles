@@ -319,6 +319,7 @@ export interface PlayerData {
   age: string;
   weight: string;
   journalUrl: string;
+  languages?: string;
   classFeatures: string;
   speciesFeatures: string;
   feats: string;
@@ -343,6 +344,11 @@ export interface PlayerData {
   deathSaves: { successes: number; failures: number };
   hiddenNotes: string;
   exhaustionConfig: ExhaustionLevel[];
+
+  // Image customization
+  imageZoom?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
 
   // Claim system
   claimable?: boolean;

@@ -145,6 +145,17 @@ export function CharacterTab({ player, onChange, canEdit }: CharacterTabProps) {
         )}
       </div>
 
+      <div style={{ marginBottom: 8 }}>
+        <label className="field-label">Languages</label>
+        <input
+          type="text"
+          value={player.languages ?? ''}
+          onChange={(e) => update('languages', e.target.value)}
+          disabled={!canEdit}
+          placeholder="e.g. Common, Elvish, Dwarvish"
+        />
+      </div>
+
       <div className="divider" />
 
       {/* Narrative */}

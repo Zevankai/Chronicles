@@ -45,10 +45,13 @@ const CATEGORY_TO_SLOTS: Partial<Record<ItemCategory, EquipmentSlot[]>> = {
   'Clothing': ['Clothing1', 'Clothing2'],
 };
 
-// Any item can be equipped to Misc
+// Only 'Other' category items can be equipped to Misc
 function getAvailableSlots(item: Item): EquipmentSlot[] {
   const specific = CATEGORY_TO_SLOTS[item.category] || [];
-  return [...specific, 'Misc'];
+  if (item.category === 'Other') {
+    return [...specific, 'Misc'];
+  }
+  return specific;
 }
 
 function getItemWeight(item: Item): number {

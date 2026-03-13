@@ -158,16 +158,26 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
       )}
 
       {/* Claim button */}
-      {player.claimable && !isGM && (
+      {player.claimable && (!player.ownerId || isGM) && (
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
-          {player.claimedBy ? (
-            <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
-              ✅ Claimed {player.claimedBy === playerId ? '(by you)' : `(by another player)`}
+          {player.ownerId ? (
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
+                ✅ Claimed {player.ownerId === playerId ? '(by you)' : '(by another player)'}
+              </div>
+              {isGM && (
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => onChange({ ...player, ownerId: undefined, claimedBy: undefined })}
+                >
+                  🔓 Release
+                </button>
+              )}
             </div>
           ) : (
             <button
               className="btn btn-primary"
-              onClick={() => playerId && update('claimedBy', playerId)}
+              onClick={() => playerId && onChange({ ...player, ownerId: playerId, claimedBy: playerId })}
             >
               🏷 Claim this Character
             </button>

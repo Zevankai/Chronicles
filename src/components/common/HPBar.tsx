@@ -14,8 +14,8 @@ export function HPBar({ current, max, temp = 0, editable = false, onCurrentChang
   const [editCurrent, setEditCurrent] = useState(current);
   const [editTemp, setEditTemp] = useState(temp);
 
-  useEffect(() => { setEditCurrent(current); }, [current]);
-  useEffect(() => { setEditTemp(temp); }, [temp]);
+  useEffect(() => { if (!editing) setEditCurrent(current); }, [current, editing]);
+  useEffect(() => { if (!editing) setEditTemp(temp); }, [temp, editing]);
 
   const pct = max > 0 ? Math.min(100, (current / max) * 100) : 0;
   const status = pct > 60 ? 'healthy' : pct > 30 ? 'wounded' : 'critical';
