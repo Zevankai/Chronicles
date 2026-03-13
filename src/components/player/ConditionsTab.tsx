@@ -716,14 +716,13 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
           </div>
         </div>
         {canEdit && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
-            <button
-              className="btn btn-sm btn-secondary"
-              onClick={() => update('deathSaves', { successes: 0, failures: 0 })}
-            >
-              Reset
-            </button>
-          </div>
+          <button
+            className="btn btn-sm btn-secondary"
+            style={{ marginTop: 6 }}
+            onClick={() => update('deathSaves', { successes: 0, failures: 0 })}
+          >
+            Reset
+          </button>
         )}
       </div>
     </div>
