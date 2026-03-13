@@ -16,6 +16,7 @@ interface PlayerTokenProps {
   onUpdate: (updated: PlayerData) => void;
   isGM: boolean;
   isOwner: boolean;
+  playerId?: string | null;
   calendar?: CalendarConfig;
   weather?: WeatherData;
   onCalendarChange?: (cal: CalendarConfig) => void;
@@ -29,6 +30,7 @@ export function PlayerToken({
   onUpdate,
   isGM,
   isOwner,
+  playerId,
   calendar,
   weather,
   onCalendarChange,
@@ -159,6 +161,7 @@ export function PlayerToken({
           weather={weather?.description}
           onTradeClick={onTradeClick}
           currentTokenId={itemId}
+          playerId={playerId}
         />
         <SkillsTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <ConditionsTab player={player} onChange={onUpdate} canEdit={canEdit} isGM={isGM} />

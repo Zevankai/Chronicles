@@ -118,8 +118,8 @@ export const DEFAULT_EXHAUSTION_EFFECTS: ExhaustionLevel[] = [
 // REST OPTIONS
 // ============================================================
 
-export const LONG_REST_OPTIONS = ['Eat', 'Pray', 'Study', 'Work', 'Spar', 'Reinforce', 'Bond', 'Craft', 'Scout', 'Care'];
-export const SHORT_REST_OPTIONS = ['Eat', 'Stretch', 'Meditate', 'Sharpen', 'Scout', 'Motivate', 'Bond', 'Tinker', 'Study', 'Calm'];
+export const LONG_REST_OPTIONS = ['Eat', 'Pray', 'Study', 'Work', 'Spar', 'Reinforce', 'Bond', 'Craft', 'Scout', 'Care', 'Tell a Joke'];
+export const SHORT_REST_OPTIONS = ['Eat', 'Stretch', 'Meditate', 'Sharpen', 'Scout', 'Motivate', 'Bond', 'Tinker', 'Study', 'Calm', 'Tell a Joke'];
 export const LONG_REST_PICK = 3;
 export const SHORT_REST_PICK = 2;
 

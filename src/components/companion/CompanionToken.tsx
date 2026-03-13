@@ -17,9 +17,10 @@ interface CompanionTokenProps {
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
+  playerId?: string | null;
 }
 
-export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, onCalendarChange, onTokenTypeChange }: CompanionTokenProps) {
+export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, onCalendarChange, onTokenTypeChange, playerId }: CompanionTokenProps) {
   const update = <K extends keyof CompanionData>(key: K, value: CompanionData[K]) =>
     onUpdate({ ...companion, [key]: value });
 
@@ -141,6 +142,24 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
             update('inventory', [...companion.inventory, { id: generateId(), name, category: 'Other', quantity: 1, equipped: null }]);
           }
         }}>+ Add Item</button>
+      )}
+
+      {/* Claim button */}
+      {companion.claimable && !isGM && (
+        <div style={{ textAlign: 'center', padding: '8px 0', marginTop: 8 }}>
+          {companion.claimedBy ? (
+            <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
+              ✅ Claimed {companion.claimedBy === playerId ? '(by you)' : '(by another player)'}
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => playerId && onUpdate({ ...companion, claimedBy: playerId })}
+            >
+              🏷 Claim
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

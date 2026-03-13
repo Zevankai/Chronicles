@@ -130,6 +130,7 @@ body {
   padding: 2px;
   overflow-x: auto;
   flex-shrink: 0;
+  justify-content: center;
 }
 
 .tab-list-two-rows {
@@ -142,6 +143,7 @@ body {
   display: flex;
   gap: 2px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .tab-button {

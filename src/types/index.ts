@@ -79,6 +79,9 @@ export interface Item {
   unitCapacity?: number;
   itemMaxCapacity?: number;
   allowedItemTypes?: ItemCategory[];
+
+  // Price (for merchant items - multi-currency)
+  price?: Coins;
 }
 
 export interface Coins {
@@ -169,8 +172,8 @@ export interface ExhaustionLevel {
 // REST SYSTEM
 // ============================================================
 
-export type LongRestOption = 'Eat' | 'Pray' | 'Study' | 'Work' | 'Spar' | 'Reinforce' | 'Bond' | 'Craft' | 'Scout' | 'Care';
-export type ShortRestOption = 'Eat' | 'Stretch' | 'Meditate' | 'Sharpen' | 'Scout' | 'Motivate' | 'Bond' | 'Tinker' | 'Study' | 'Calm';
+export type LongRestOption = 'Eat' | 'Pray' | 'Study' | 'Work' | 'Spar' | 'Reinforce' | 'Bond' | 'Craft' | 'Scout' | 'Care' | 'Tell a Joke';
+export type ShortRestOption = 'Eat' | 'Stretch' | 'Meditate' | 'Sharpen' | 'Scout' | 'Motivate' | 'Bond' | 'Tinker' | 'Study' | 'Calm' | 'Tell a Joke';
 
 export interface RestBonus {
   restType: 'long' | 'short';
@@ -244,6 +247,18 @@ export interface WeatherData {
 }
 
 // ============================================================
+// PROJECT SYSTEM
+// ============================================================
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  progressPoints: number;
+  totalPoints: number;
+}
+
+// ============================================================
 // PLAYER TOKEN
 // ============================================================
 
@@ -290,6 +305,8 @@ export interface PlayerData {
   scars: Scar[];
   favorites?: string[]; // favorite token IDs
   lastRestBonus?: RestBonus;
+  lastShortRestBonus?: RestBonus;
+  lastLongRestBonus?: RestBonus;
 
   // Character
   alignment: Alignment;
@@ -330,6 +347,9 @@ export interface PlayerData {
   claimable?: boolean;
   claimedBy?: string; // player ID
 
+  // Projects
+  projects?: Project[];
+
   // Meta
   version: number;
 }
@@ -352,7 +372,7 @@ export interface MonsterAction {
   description: string;
 }
 
-export type MonsterStatus = 'Alive' | 'Dead' | 'Fleeing';
+export type MonsterStatus = 'Alive' | 'Dead' | 'Fleeing' | 'Vulnerable';
 
 export interface MonsterData {
   tokenType: 'monster';
@@ -508,6 +528,7 @@ export interface RoomMetadata {
   itemRepository: Item[];
   spellRepository: Spell[];
   exhaustionConfig: ExhaustionLevel[];
+  activeTrades?: Record<string, string>; // tokenId -> playerIdTrading
   version: number;
 }
 

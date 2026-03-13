@@ -14,9 +14,10 @@ interface HomeTabProps {
   onTradeClick?: () => void;
   favoriteTokenIds?: string[]; // IDs of tokens to show as favorites
   currentTokenId?: string; // ID of this token
+  playerId?: string | null;
 }
 
-export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, favoriteTokenIds, currentTokenId }: HomeTabProps) {
+export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, favoriteTokenIds, currentTokenId, playerId }: HomeTabProps) {
   const canEdit = isOwner || isGM;
   const enc = getEncumbranceStatus(player);
   const totalWeight = getInventoryWeight(player.inventory);
@@ -64,6 +65,18 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
           <StatBox label="Passive Ins" value={player.passiveInsight} editable={canEdit}
             onChange={(v) => update('passiveInsight', v)} min={1} max={30} />
         </div>
+        {canEdit && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Max HP</label>
+            <input
+              type="number"
+              value={player.maxHp}
+              min={1}
+              onChange={(e) => update('maxHp', parseInt(e.target.value) || 1)}
+              style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Attributes */}
@@ -140,6 +153,24 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Claim button */}
+      {player.claimable && !isGM && (
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          {player.claimedBy ? (
+            <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
+              ✅ Claimed {player.claimedBy === playerId ? '(by you)' : `(by another player)`}
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary"
+              onClick={() => playerId && update('claimedBy', playerId)}
+            >
+              🏷 Claim this Character
+            </button>
+          )}
         </div>
       )}
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlayerData, Item, ItemCategory, EquipmentSlot } from '../../types';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
-import { getInventoryWeight, getEncumbranceStatus, generateId, getModifier } from '../../utils';
+import { getInventoryWeight, getEncumbranceStatus, getCombatEncumberedThreshold, getOverEncumberedThreshold, generateId, getModifier } from '../../utils';
 
 interface EquipmentTabProps {
   player: PlayerData;
@@ -26,6 +26,23 @@ const EQUIPMENT_SLOTS: { slot: EquipmentSlot; label: string; icon: string }[] = 
   { slot: 'Clothing1', label: 'Clothing 1', icon: '👘' },
   { slot: 'Clothing2', label: 'Clothing 2', icon: '👘' },
 ];
+
+// Maps item categories to their valid equipment slots
+const CATEGORY_TO_SLOTS: Partial<Record<ItemCategory, EquipmentSlot[]>> = {
+  'Bag': ['Bag'],
+  'Auxiliary': ['Auxiliary1', 'Auxiliary2'],
+  'One-Handed Weapon': ['PrimaryHand', 'SecondaryHand'],
+  'Two-Handed Weapon': ['PrimaryHand'],
+  'Shield': ['SecondaryHand'],
+  'Helmet': ['HeadArmor'],
+  'Light Armor': ['PrimaryArmor'],
+  'Medium Armor': ['PrimaryArmor'],
+  'Heavy Armor': ['PrimaryArmor'],
+  'Greaves': ['Gauntlets'],
+  'Boots': ['Boots'],
+  'Jewelry': ['Jewelry1', 'Jewelry2', 'Jewelry3'],
+  'Clothing': ['Clothing1', 'Clothing2'],
+};
 
 function getItemWeight(item: Item): number {
   return item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
@@ -194,7 +211,58 @@ function ItemEditForm({
   );
 }
 
-function AddItemForm({ onAdd }: { onAdd: (item: Item) => void }) {
+function EquipSlotPicker({
+  item,
+  availableSlots,
+  inventory,
+  onEquip,
+  onClose,
+}: {
+  item: Item;
+  availableSlots: EquipmentSlot[];
+  inventory: Item[];
+  onEquip: (slot: EquipmentSlot | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 280 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Equip: {item.name}</span>
+          <button className="btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {availableSlots.map((slot) => {
+            const occupant = inventory.find((i) => i.id !== item.id && i.equipped === slot);
+            const slotInfo = EQUIPMENT_SLOTS.find((s) => s.slot === slot);
+            return (
+              <button
+                key={slot}
+                className="btn btn-secondary"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                onClick={() => { onEquip(slot); onClose(); }}
+              >
+                <span>{slotInfo?.icon} {slotInfo?.label}</span>
+                {occupant ? (
+                  <span style={{ fontSize: 10, color: 'var(--color-warning)' }}>({occupant.name})</span>
+                ) : (
+                  <span style={{ fontSize: 10, color: 'var(--color-success)' }}>Empty</span>
+                )}
+              </button>
+            );
+          })}
+          {item.equipped && (
+            <button className="btn btn-danger btn-sm" onClick={() => { onEquip(null); onClose(); }}>
+              Unequip
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddItemForm({ onAdd, disabled }: { onAdd: (item: Item) => void; disabled?: boolean }) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ItemCategory>('Other');
   const [qty, setQty] = useState(1);
@@ -221,11 +289,13 @@ function AddItemForm({ onAdd }: { onAdd: (item: Item) => void }) {
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()}
         style={{ flex: 1, minWidth: 80 }}
+        disabled={disabled}
       />
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value as ItemCategory)}
         style={{ flex: 1, minWidth: 80 }}
+        disabled={disabled}
       >
         {ITEM_CATEGORIES.map((c) => (
           <option key={c} value={c}>{c}</option>
@@ -237,8 +307,9 @@ function AddItemForm({ onAdd }: { onAdd: (item: Item) => void }) {
         min={1}
         onChange={(e) => setQty(parseInt(e.target.value) || 1)}
         style={{ width: 45 }}
+        disabled={disabled}
       />
-      <button className="btn btn-primary btn-sm" onClick={submit}>Add</button>
+      <button className="btn btn-primary btn-sm" onClick={submit} disabled={disabled}>Add</button>
     </div>
   );
 }
@@ -246,9 +317,15 @@ function AddItemForm({ onAdd }: { onAdd: (item: Item) => void }) {
 export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const [subTab, setSubTab] = useState<'slots' | 'bag' | 'quick'>('slots');
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [equipPickerItem, setEquipPickerItem] = useState<Item | null>(null);
 
   const totalWeight = getInventoryWeightWithCoins(player);
+  const strMod = getModifier(player.attributes.STR);
+  const combatThreshold = getCombatEncumberedThreshold(player.bodyWeight, strMod);
+  const overThreshold = getOverEncumberedThreshold(player.bodyWeight, strMod);
   const enc = getEncumbranceStatus(player);
+  const isOverEncumbered = enc === 'over';
 
   const hasAuxEquipped = player.inventory.some((i) =>
     i.equipped === 'Auxiliary1' || i.equipped === 'Auxiliary2'
@@ -280,7 +357,20 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
     });
   };
 
+  const equipItem = (item: Item, slot: EquipmentSlot | null) => {
+    onChange({
+      ...player,
+      inventory: player.inventory.map((i) => i.id === item.id ? { ...i, equipped: slot } : i),
+    });
+  };
+
   const addItem = (item: Item) => {
+    // Check encumbrance before adding
+    const newWeight = totalWeight + getItemWeight(item) * item.quantity;
+    if (newWeight > overThreshold) {
+      alert(`Cannot add item: would exceed Over Encumbered limit (${overThreshold.toFixed(1)} units). You are already carrying ${totalWeight.toFixed(1)} units.`);
+      return;
+    }
     onChange({ ...player, inventory: [...player.inventory, item] });
   };
 
@@ -289,43 +379,88 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   // Quick inventory = items in aux slots
   const quickItems = player.inventory.filter((i) => i.equipped && ['Auxiliary1', 'Auxiliary2'].includes(i.equipped));
 
-  const renderInventoryList = (items: Item[]) => (
+  const renderInventoryList = (items: Item[], showEquipBtn = false) => (
     <div>
       {items.map((item) => {
         const unitWeight = getItemWeight(item);
+        const isExpanded = expandedItemId === item.id;
+        const validSlots = CATEGORY_TO_SLOTS[item.category] || [];
+
         return (
-          <div key={item.id} className="inventory-row" style={{ gridTemplateColumns: '1fr 55px 36px auto' }}>
-            <span style={{ fontSize: 12 }}>
-              {item.name}
-              {item.equipped && (
-                <span className="badge badge-info" style={{ marginLeft: 4, fontSize: 9 }}>
-                  {item.equipped}
-                </span>
+          <div key={item.id} style={{ marginBottom: 4 }}>
+            <div className="inventory-row" style={{ gridTemplateColumns: '1fr 55px 36px auto' }}>
+              <button
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  textAlign: 'left', padding: 0, fontSize: 12, color: 'var(--color-text)'
+                }}
+                onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+              >
+                {item.name}
+                {item.equipped && (
+                  <span className="badge badge-info" style={{ marginLeft: 4, fontSize: 9 }}>
+                    {item.equipped}
+                  </span>
+                )}
+                {item.requiresAttunement && (
+                  <span className="badge badge-warning" style={{ marginLeft: 4, fontSize: 9 }}>
+                    {item.attuned ? '✦' : '◇'} Attune
+                  </span>
+                )}
+              </button>
+              <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
+                {item.category}<br />{(unitWeight * item.quantity).toFixed(1)}u
+              </span>
+              {canEdit ? (
+                <input
+                  type="number"
+                  value={item.quantity}
+                  min={0}
+                  onChange={(e) => updateQty(item.id, parseInt(e.target.value) || 0)}
+                  style={{ width: 35, padding: '1px 2px', fontSize: 11 }}
+                />
+              ) : (
+                <span style={{ fontSize: 12, textAlign: 'center' }}>×{item.quantity}</span>
               )}
-              {item.requiresAttunement && (
-                <span className="badge badge-warning" style={{ marginLeft: 4, fontSize: 9 }}>
-                  {item.attuned ? '✦' : '◇'} Attune
-                </span>
+              {canEdit && (
+                <div style={{ display: 'flex', gap: 1 }}>
+                  {showEquipBtn && validSlots.length > 0 && (
+                    <button
+                      className={`btn-icon${item.equipped ? ' active' : ''}`}
+                      onClick={() => setEquipPickerItem(item)}
+                      title={item.equipped ? `Equipped: ${item.equipped}` : 'Equip'}
+                      style={{ fontSize: 11, color: item.equipped ? 'var(--color-primary)' : undefined }}
+                    >
+                      {item.equipped ? '✅' : '⚔️'}
+                    </button>
+                  )}
+                  <button className="btn-icon" onClick={() => setEditingItem(item)} title="Edit">✏️</button>
+                  <button className="btn-icon" onClick={() => removeItem(item.id)} title="Remove">🗑</button>
+                </div>
               )}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
-              {item.category}<br />{(unitWeight * item.quantity).toFixed(1)}u
-            </span>
-            {canEdit ? (
-              <input
-                type="number"
-                value={item.quantity}
-                min={0}
-                onChange={(e) => updateQty(item.id, parseInt(e.target.value) || 0)}
-                style={{ width: 35, padding: '1px 2px', fontSize: 11 }}
-              />
-            ) : (
-              <span style={{ fontSize: 12, textAlign: 'center' }}>×{item.quantity}</span>
-            )}
-            {canEdit && (
-              <div style={{ display: 'flex', gap: 1 }}>
-                <button className="btn-icon" onClick={() => setEditingItem(item)} title="Edit">✏️</button>
-                <button className="btn-icon" onClick={() => removeItem(item.id)} title="Remove">🗑</button>
+            </div>
+            {/* Expanded item details */}
+            {isExpanded && (
+              <div style={{
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-border-light)',
+                borderRadius: 4,
+                padding: '6px 8px',
+                fontSize: 11,
+                color: 'var(--color-text-muted)',
+                marginTop: 2,
+              }}>
+                {item.description && <div style={{ marginBottom: 4, color: 'var(--color-text)', whiteSpace: 'pre-wrap' }}>{item.description}</div>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+                  {item.damage && <div><strong>Damage:</strong> {item.damage}</div>}
+                  {item.hitModifier !== undefined && <div><strong>Hit Mod:</strong> {item.hitModifier >= 0 ? '+' : ''}{item.hitModifier}</div>}
+                  {item.damageModifier !== undefined && <div><strong>Dmg Mod:</strong> {item.damageModifier >= 0 ? '+' : ''}{item.damageModifier}</div>}
+                  {item.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{item.acBonus}</div>}
+                  {item.maxCharges !== undefined && <div><strong>Charges:</strong> {item.currentCharges ?? 0}/{item.maxCharges}</div>}
+                  {item.requiresAttunement && <div><strong>Attunement:</strong> {item.attuned ? 'Attuned' : 'Required'}</div>}
+                </div>
+                {item.properties && <div style={{ marginTop: 4 }}><strong>Properties:</strong> {item.properties}</div>}
               </div>
             )}
           </div>
@@ -344,13 +479,13 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
           <span className="field-label">Encumbrance</span>
           <span className={`text-${enc === 'over' ? 'danger' : enc === 'combat' ? 'warning' : 'success'}`}>
-            {totalWeight.toFixed(1)} / {bagCapacity}u
+            {totalWeight.toFixed(1)}u (Combat: {combatThreshold.toFixed(1)} / Over: {overThreshold.toFixed(1)})
           </span>
         </div>
         <div className="encumbrance-bar">
           <div
             className={`encumbrance-fill ${enc}`}
-            style={{ width: `${Math.min(100, (totalWeight / bagCapacity) * 100)}%` }}
+            style={{ width: `${Math.min(100, (totalWeight / overThreshold) * 100)}%` }}
           />
         </div>
         {enc !== 'normal' && (
@@ -419,11 +554,6 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
               );
             })}
           </div>
-          {canEdit && (
-            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--color-text-muted)' }}>
-              Tip: Edit an item and set its equipment slot to equip it.
-            </div>
-          )}
         </div>
       )}
 
@@ -435,11 +565,20 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
               Bag ({bagItems.length} items)
             </div>
             <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-              Capacity: {bagCapacity}u {equippedBag ? `(${equippedBag.name})` : '(no bag)'}
+              {equippedBag ? `${equippedBag.name}` : 'no bag'}
             </span>
           </div>
-          {renderInventoryList(bagItems)}
-          {canEdit && <AddItemForm onAdd={addItem} />}
+          {renderInventoryList(bagItems, true)}
+          {canEdit && (
+            <>
+              {isOverEncumbered && (
+                <div className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '4px 8px', marginBottom: 4, fontSize: 11 }}>
+                  ⚠ Over Encumbered — cannot add items
+                </div>
+              )}
+              <AddItemForm onAdd={addItem} disabled={isOverEncumbered} />
+            </>
+          )}
         </div>
       )}
 
@@ -447,7 +586,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
       {subTab === 'quick' && (
         <div>
           <div className="section-header">Quick Access (Auxiliary Bags)</div>
-          {renderInventoryList(quickItems)}
+          {renderInventoryList(quickItems, false)}
           {canEdit && <AddItemForm onAdd={(item) => addItem({ ...item, equipped: 'Auxiliary1' })} />}
         </div>
       )}
@@ -463,13 +602,18 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
           onClose={() => setEditingItem(null)}
         />
       )}
+
+      {/* Equip slot picker */}
+      {equipPickerItem && (
+        <EquipSlotPicker
+          item={equipPickerItem}
+          availableSlots={CATEGORY_TO_SLOTS[equipPickerItem.category] || []}
+          inventory={player.inventory}
+          onEquip={(slot) => equipItem(equipPickerItem, slot)}
+          onClose={() => setEquipPickerItem(null)}
+        />
+      )}
     </div>
   );
 }
 
-
-interface EquipmentTabProps {
-  player: PlayerData;
-  onChange: (updated: PlayerData) => void;
-  canEdit: boolean;
-}

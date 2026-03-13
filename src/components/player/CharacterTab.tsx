@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerData, Alignment, Scar, InjurySeverity, BodyLocation } from '../../types';
+import { PlayerData, Alignment, Scar, InjurySeverity, BodyLocation, Project } from '../../types';
 import { ALIGNMENTS } from '../../constants';
 import { generateId } from '../../utils';
 
@@ -15,6 +15,9 @@ export function CharacterTab({ player, onChange, canEdit }: CharacterTabProps) {
   const [newScarSeverity, setNewScarSeverity] = useState<InjurySeverity>('minor');
   const [newScarLocation, setNewScarLocation] = useState<BodyLocation>('Limb');
   const [showAddScar, setShowAddScar] = useState(false);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [newProject, setNewProject] = useState<Omit<Project, 'id'>>({ name: '', description: '', progressPoints: 0, totalPoints: 10 });
 
   const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>
     onChange({ ...player, [key]: value });
@@ -32,6 +35,7 @@ export function CharacterTab({ player, onChange, canEdit }: CharacterTabProps) {
   );
 
   const scars: Scar[] = player.scars || [];
+  const projects: Project[] = player.projects || [];
 
   const addScar = () => {
     if (!newScarDesc.trim()) return;
@@ -53,6 +57,26 @@ export function CharacterTab({ player, onChange, canEdit }: CharacterTabProps) {
 
   const removeScar = (id: string) => {
     update('scars', scars.filter((s) => s.id !== id));
+  };
+
+  const addProject = () => {
+    if (!newProject.name.trim()) return;
+    const project: Project = {
+      id: generateId(),
+      ...newProject,
+      name: newProject.name.trim(),
+    };
+    update('projects', [...projects, project]);
+    setNewProject({ name: '', description: '', progressPoints: 0, totalPoints: 10 });
+    setShowAddProject(false);
+  };
+
+  const updateProject = (id: string, changes: Partial<Project>) => {
+    update('projects', projects.map((p) => p.id === id ? { ...p, ...changes } : p));
+  };
+
+  const removeProject = (id: string) => {
+    update('projects', projects.filter((p) => p.id !== id));
   };
 
   return (
@@ -215,6 +239,126 @@ export function CharacterTab({ player, onChange, canEdit }: CharacterTabProps) {
           </div>
         </div>
       ))}
+
+      {/* Projects */}
+      <div className="divider" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div className="section-header" style={{ marginBottom: 0 }}>Projects ({projects.length})</div>
+        {canEdit && (
+          <button className="btn btn-sm btn-secondary" onClick={() => setShowAddProject(!showAddProject)}>
+            + Add Project
+          </button>
+        )}
+      </div>
+
+      {showAddProject && canEdit && (
+        <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border-light)', borderRadius: 4, padding: 8, marginBottom: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="field-label">Project Name</label>
+              <input type="text" value={newProject.name}
+                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                placeholder="Project name..." />
+            </div>
+            <div>
+              <label className="field-label">Target Points</label>
+              <input type="number" value={newProject.totalPoints} min={1}
+                onChange={(e) => setNewProject({ ...newProject, totalPoints: parseInt(e.target.value) || 1 })} />
+            </div>
+            <div>
+              <label className="field-label">Current Progress</label>
+              <input type="number" value={newProject.progressPoints} min={0}
+                onChange={(e) => setNewProject({ ...newProject, progressPoints: parseInt(e.target.value) || 0 })} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="field-label">Description</label>
+              <textarea value={newProject.description}
+                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                placeholder="Project description..." rows={2} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-sm btn-secondary" onClick={() => { setShowAddProject(false); }}>Cancel</button>
+            <button className="btn btn-sm btn-primary" onClick={addProject}>Add Project</button>
+          </div>
+        </div>
+      )}
+
+      {projects.length === 0 && !showAddProject && (
+        <div className="text-muted" style={{ fontSize: 12 }}>No projects yet</div>
+      )}
+
+      {projects.map((project) => {
+        const pct = project.totalPoints > 0 ? Math.min(100, (project.progressPoints / project.totalPoints) * 100) : 0;
+        const isEditing = editingProjectId === project.id;
+        return (
+          <div key={project.id} style={{
+            background: 'var(--color-bg)',
+            border: '1px solid var(--color-border-light)',
+            borderRadius: 4,
+            padding: 8,
+            marginBottom: 6,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <div style={{ flex: 1 }}>
+                {isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <input type="text" value={project.name}
+                      onChange={(e) => updateProject(project.id, { name: e.target.value })} />
+                    <textarea value={project.description}
+                      onChange={(e) => updateProject(project.id, { description: e.target.value })}
+                      rows={2} />
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <label className="field-label" style={{ marginBottom: 0 }}>Progress:</label>
+                      <input type="number" value={project.progressPoints} min={0}
+                        max={project.totalPoints}
+                        onChange={(e) => updateProject(project.id, { progressPoints: parseInt(e.target.value) || 0 })}
+                        style={{ width: 50 }} />
+                      <span>/</span>
+                      <input type="number" value={project.totalPoints} min={1}
+                        onChange={(e) => updateProject(project.id, { totalPoints: parseInt(e.target.value) || 1 })}
+                        style={{ width: 50 }} />
+                    </div>
+                    <button className="btn btn-sm btn-primary" onClick={() => setEditingProjectId(null)}>Done</button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontWeight: 'bold', fontSize: 13 }}>{project.name}</div>
+                    {project.description && (
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>{project.description}</div>
+                    )}
+                  </>
+                )}
+              </div>
+              {canEdit && !isEditing && (
+                <div style={{ display: 'flex', gap: 2 }}>
+                  <button className="btn-icon" onClick={() => setEditingProjectId(project.id)} title="Edit">✏️</button>
+                  <button className="btn-icon" onClick={() => removeProject(project.id)} title="Remove">🗑</button>
+                </div>
+              )}
+            </div>
+            {!isEditing && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                  <span>Progress</span>
+                  <span style={{ color: pct >= 100 ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                    {project.progressPoints} / {project.totalPoints}
+                    {pct >= 100 && ' ✅ Complete!'}
+                  </span>
+                </div>
+                <div style={{ height: 8, background: 'var(--color-surface-dark)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${pct}%`,
+                    background: pct >= 100 ? 'var(--color-success)' : 'var(--color-primary)',
+                    transition: 'width 0.3s',
+                  }} />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
