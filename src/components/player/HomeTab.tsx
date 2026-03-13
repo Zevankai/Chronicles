@@ -54,15 +54,15 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
             onChange={(v) => update('passiveInsight', v)} min={1} max={30} />
         </div>
         {canEdit && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Current HP</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto 1fr auto 1fr', gap: '4px 6px', marginTop: 6, alignItems: 'center' }}>
+            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Cur HP</label>
             <input
               type="number"
               value={player.currentHp}
               min={0}
               max={player.maxHp}
               onChange={(e) => update('currentHp', Math.min(player.maxHp, Math.max(0, parseInt(e.target.value) || 0)))}
-              style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
+              style={{ padding: '2px 4px', fontSize: 13 }}
             />
             <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Max HP</label>
             <input
@@ -70,15 +70,15 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
               value={player.maxHp}
               min={1}
               onChange={(e) => update('maxHp', parseInt(e.target.value) || 1)}
-              style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
+              style={{ padding: '2px 4px', fontSize: 13 }}
             />
-            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Temp HP</label>
+            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Tmp HP</label>
             <input
               type="number"
               value={player.tempHp}
               min={0}
               onChange={(e) => update('tempHp', Math.max(0, parseInt(e.target.value) || 0))}
-              style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
+              style={{ padding: '2px 4px', fontSize: 13 }}
             />
           </div>
         )}

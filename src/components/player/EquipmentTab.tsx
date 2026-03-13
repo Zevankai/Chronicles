@@ -350,7 +350,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const [overCapacityWarning, setOverCapacityWarning] = useState(false);
   const [auxPickerItem, setAuxPickerItem] = useState<Item | null>(null);
 
-  const totalWeight = getInventoryWeight(player.inventory, player.coins);
+  const totalWeight = getInventoryWeight(player.inventory, player.coins, player.bagDropped);
   const strMod = getModifier(player.attributes.STR);
   const bodyWeight = parseBodyWeight(player);
   const combatThreshold = getCombatEncumberedThreshold(bodyWeight, strMod);
@@ -735,25 +735,43 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
       {/* Bag inventory */}
       {subTab === 'bag' && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div className="section-header" style={{ marginBottom: 0 }}>
               Bag ({bagItems.length} items)
             </div>
-            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-              {equippedBag ? `${equippedBag.name}` : 'no bag'} · {bagCapacity}u cap
-            </span>
-          </div>
-          {renderInventoryList(bagItems, true, false)}
-          {canEdit && (
-            <>
-              {totalWeight >= bagCapacity && (
-                <div className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '4px 8px', marginBottom: 4, fontSize: 11 }}>
-                  🎒 Bag full — cannot add items
-                </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                {equippedBag ? `${equippedBag.name}` : 'no bag'} · {bagCapacity}u cap
+              </span>
+              {canEdit && (
+                <button
+                  className={`btn btn-sm ${player.bagDropped ? 'btn-success' : 'btn-secondary'}`}
+                  onClick={() => onChange({ ...player, bagDropped: !player.bagDropped })}
+                  title={player.bagDropped ? 'Pick up bag — restores bag items to encumbrance' : 'Set bag down — bag items no longer count toward encumbrance'}
+                >
+                  {player.bagDropped ? '🎒 Pick Up Bag' : '📦 Set Bag Down'}
+                </button>
               )}
-              <AddItemForm onAdd={addItem} disabled={totalWeight >= bagCapacity} />
-            </>
+            </div>
+          </div>
+          {player.bagDropped && (
+            <div className="badge badge-warning" style={{ display: 'block', padding: '4px 8px', marginBottom: 6, fontSize: 11 }}>
+              🎒 Bag is set down — items are inaccessible and not counted toward encumbrance.
+            </div>
           )}
+          <div style={{ opacity: player.bagDropped ? 0.45 : 1, pointerEvents: player.bagDropped ? 'none' : 'auto' }}>
+            {renderInventoryList(bagItems, true, false)}
+            {canEdit && !player.bagDropped && (
+              <>
+                {totalWeight >= bagCapacity && (
+                  <div className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '4px 8px', marginBottom: 4, fontSize: 11 }}>
+                    🎒 Bag full — cannot add items
+                  </div>
+                )}
+                <AddItemForm onAdd={addItem} disabled={totalWeight >= bagCapacity} />
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -762,7 +780,6 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
         <div>
           <div className="section-header">Quick Access (Auxiliary Bags)</div>
           {renderInventoryList(quickItems, false, true)}
-          {canEdit && <AddItemForm onAdd={(item) => addItem({ ...item, equipped: 'Auxiliary1' })} />}
         </div>
       )}
 

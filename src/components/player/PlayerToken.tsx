@@ -11,6 +11,7 @@ import { EquipmentTab } from './EquipmentTab';
 import { SpellsTab } from './SpellsTab';
 import { CalendarTab } from './CalendarTab';
 import { GMTab } from './GMTab';
+import { FeaturesTab } from './FeaturesTab';
 
 interface PlayerTokenProps {
   player: PlayerData;
@@ -78,6 +79,7 @@ export function PlayerToken({
     { id: 'character', label: '📜 Char.' },
     { id: 'equipment', label: '⚔️ Equip.' },
     { id: 'spells', label: '✨ Spells' },
+    { id: 'features', label: '⭐ Feats' },
     { id: 'calendar', label: '📅 Cal.' },
     { id: 'gm', label: '🔒 GM' },
   ];
@@ -309,15 +311,13 @@ export function PlayerToken({
         </div>
       )}
 
-      {/* HP Bar in header area */}
+      {/* HP Bar in header area — display only, not editable here */}
       <div style={{ padding: '4px 8px', background: 'var(--color-primary)' }}>
         <HPBar
           current={player.currentHp}
           max={player.maxHp}
           temp={player.tempHp}
-          editable={canEdit}
-          onCurrentChange={(v) => update('currentHp', v)}
-          onTempChange={(v) => update('tempHp', v)}
+          editable={false}
         />
       </div>
 
@@ -336,6 +336,7 @@ export function PlayerToken({
         <CharacterTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <EquipmentTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <SpellsTab player={player} onChange={onUpdate} canEdit={canEdit} />
+        <FeaturesTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <CalendarTab
           calendar={cal}
           weather={weather}

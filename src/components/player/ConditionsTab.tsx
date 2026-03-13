@@ -116,6 +116,11 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
   const [showWorkProjectPicker, setShowWorkProjectPicker] = useState(false);
   const [recentShortExpanded, setRecentShortExpanded] = useState<string | null>(null);
   const [recentLongExpanded, setRecentLongExpanded] = useState<string | null>(null);
+  // Hit dice state
+  const [hitDiceToUse, setHitDiceToUse] = useState(0);
+  const [showHpRecovery, setShowHpRecovery] = useState(false);
+  const [hpRecoveryInput, setHpRecoveryInput] = useState(0);
+  const [pendingHitDiceUsed, setPendingHitDiceUsed] = useState(0);
 
   const exhaustionConfig = (player.exhaustionConfig?.length ? player.exhaustionConfig : DEFAULT_EXHAUSTION_EFFECTS);
 
@@ -210,23 +215,32 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       timestamp: Date.now(),
     };
 
-    let updates: Partial<PlayerData> = {};
+    let updates: Partial<typeof player> = {};
     if (showRestModal === 'long') {
+      // Reset ALL features on long rest
+      const featuresReset = (player.features ?? []).map((f) => ({ ...f, currentCharges: f.maxCharges }));
       updates = {
         currentHp: player.maxHp,
         exhaustionLevel: Math.max(0, player.exhaustionLevel - 1),
         spellSlots: Object.fromEntries(
           Object.entries(player.spellSlots).map(([k, v]) => [k, { ...v, used: 0 }])
-        ) as PlayerData['spellSlots'],
+        ) as typeof player['spellSlots'],
         lastRestBonus: restBonus,
         lastLongRestBonus: restBonus,
+        features: featuresReset,
+        hitDiceRemaining: player.hitDiceMax ?? 0,
       };
     } else {
       const healAmount = Math.floor(player.maxHp * 0.25);
+      // Reset short-rest features on short rest
+      const featuresReset = (player.features ?? []).map((f) =>
+        f.restType === 'short' ? { ...f, currentCharges: f.maxCharges } : f
+      );
       updates = {
         currentHp: Math.min(player.maxHp, player.currentHp + healAmount),
         lastRestBonus: restBonus,
         lastShortRestBonus: restBonus,
+        features: featuresReset,
       };
     }
 
@@ -254,6 +268,14 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
     setSelectedOptions([]);
     setSelectedOptionDesc(null);
     setShowWorkProjectPicker(false);
+
+    // If hit dice were used during short rest, prompt for HP recovery
+    if (showRestModal === 'short' && hitDiceToUse > 0) {
+      setPendingHitDiceUsed(hitDiceToUse);
+      setHpRecoveryInput(0);
+      setShowHpRecovery(true);
+    }
+    setHitDiceToUse(0);
   };
 
   const handleWorkProjectSelect = (projectId: string) => {
@@ -273,6 +295,8 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       used: [],
       timestamp: Date.now(),
     };
+    // Reset ALL features on long rest
+    const featuresReset = (player.features ?? []).map((f) => ({ ...f, currentCharges: f.maxCharges }));
     const updates: Partial<PlayerData> = {
       currentHp: player.maxHp,
       exhaustionLevel: Math.max(0, player.exhaustionLevel - 1),
@@ -281,6 +305,8 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       ) as PlayerData['spellSlots'],
       lastRestBonus: restBonus,
       lastLongRestBonus: restBonus,
+      features: featuresReset,
+      hitDiceRemaining: player.hitDiceMax ?? 0,
       ...(updatedProjects ? { projects: updatedProjects } : {}),
     };
     const merged: PlayerData = { ...player, ...updates };
@@ -416,8 +442,38 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
           <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6 }}>
             Short rest heals most severe injury by 1 HP. Long rest heals it by 2 HP.
           </div>
+          {/* Hit Dice Configuration */}
+          <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border-light)', borderRadius: 4, padding: '6px 8px', marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--color-text-muted)', marginBottom: 4 }}>Hit Dice</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <label className="field-label" style={{ marginBottom: 0, fontSize: 11 }}>Max:</label>
+                <input
+                  type="number"
+                  value={player.hitDiceMax ?? 0}
+                  min={0}
+                  onChange={(e) => onChange({ ...player, hitDiceMax: parseInt(e.target.value) || 0 })}
+                  style={{ width: 44, padding: '1px 3px', fontSize: 12 }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <label className="field-label" style={{ marginBottom: 0, fontSize: 11 }}>Remaining:</label>
+                <input
+                  type="number"
+                  value={player.hitDiceRemaining ?? 0}
+                  min={0}
+                  max={player.hitDiceMax ?? 0}
+                  onChange={(e) => onChange({ ...player, hitDiceRemaining: Math.min(player.hitDiceMax ?? 0, Math.max(0, parseInt(e.target.value) || 0)) })}
+                  style={{ width: 44, padding: '1px 3px', fontSize: 12 }}
+                />
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                (refills on long rest)
+              </span>
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => { setShowRestModal('short'); setSelectedOptions([]); setSelectedOptionDesc(null); }}>
+            <button className="btn btn-secondary" onClick={() => { setShowRestModal('short'); setSelectedOptions([]); setSelectedOptionDesc(null); setHitDiceToUse(0); }}>
               🌙 Short Rest
             </button>
             <button className="btn btn-primary" onClick={() => { setShowRestModal('long'); setSelectedOptions([]); setSelectedOptionDesc(null); }}>
@@ -594,6 +650,42 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
                 );
               })}
             </div>
+            {/* Hit Dice section — short rest only */}
+            {showRestModal === 'short' && (player.hitDiceMax ?? 0) > 0 && (
+              <div style={{
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-border-light)',
+                borderRadius: 4,
+                padding: '8px 10px',
+                marginBottom: 12,
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 6 }}>
+                  Hit Dice (Optional)
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6 }}>
+                  Available: {player.hitDiceRemaining ?? 0}/{player.hitDiceMax ?? 0}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <label className="field-label" style={{ marginBottom: 0, fontSize: 11 }}>Use:</label>
+                  <input
+                    type="number"
+                    value={hitDiceToUse}
+                    min={0}
+                    max={player.hitDiceRemaining ?? 0}
+                    onChange={(e) => setHitDiceToUse(Math.min(player.hitDiceRemaining ?? 0, Math.max(0, parseInt(e.target.value) || 0)))}
+                    style={{ width: 50, padding: '1px 3px', fontSize: 12 }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    hit {hitDiceToUse === 1 ? 'die' : 'dice'}
+                  </span>
+                </div>
+                {hitDiceToUse > 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 4 }}>
+                    You'll be prompted to enter HP recovered after resting.
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => { setShowRestModal(null); setSelectedOptions([]); setSelectedOptionDesc(null); }}>Cancel</button>
               <button
@@ -643,6 +735,60 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button className="btn btn-secondary" onClick={() => { setShowWorkProjectPicker(false); doRestAfterWork(); }}>Skip</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HP Recovery prompt after using hit dice */}
+      {showHpRecovery && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 300 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🎲 Hit Dice Recovery</span>
+            </div>
+            <div style={{ marginBottom: 12, fontSize: 13 }}>
+              You used <strong>{pendingHitDiceUsed}</strong> hit {pendingHitDiceUsed === 1 ? 'die' : 'dice'}.
+              How much HP did you recover?
+            </div>
+            <input
+              type="number"
+              value={hpRecoveryInput}
+              min={0}
+              onChange={(e) => setHpRecoveryInput(Math.max(0, parseInt(e.target.value) || 0))}
+              autoFocus
+              style={{ width: '100%', marginBottom: 12 }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  // Skip HP recovery but still subtract the used dice
+                  onChange({
+                    ...player,
+                    hitDiceRemaining: Math.max(0, (player.hitDiceRemaining ?? 0) - pendingHitDiceUsed),
+                  });
+                  setShowHpRecovery(false);
+                  setPendingHitDiceUsed(0);
+                }}
+              >
+                Skip
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  onChange({
+                    ...player,
+                    currentHp: Math.min(player.maxHp, player.currentHp + hpRecoveryInput),
+                    hitDiceRemaining: Math.max(0, (player.hitDiceRemaining ?? 0) - pendingHitDiceUsed),
+                  });
+                  setShowHpRecovery(false);
+                  setPendingHitDiceUsed(0);
+                  setHpRecoveryInput(0);
+                }}
+              >
+                Apply (+{hpRecoveryInput} HP)
+              </button>
             </div>
           </div>
         </div>

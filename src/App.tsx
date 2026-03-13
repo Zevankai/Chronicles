@@ -19,6 +19,8 @@ interface AppState {
   error: string | null;
   // Map of tokenId -> token data for scene-wide token resolution
   allTokensMap: Record<string, AnyTokenData>;
+  // Map of tokenId -> OBR item image URL for displaying token images on landing page
+  tokenImagesMap: Record<string, string>;
 }
 
 const defaultRoomData: RoomMetadata = {
@@ -44,6 +46,7 @@ export default function App() {
     loading: true,
     error: null,
     allTokensMap: {},
+    tokenImagesMap: {},
   });
 
   // Keep a ref to selectedItemId so callbacks always see the latest value
@@ -84,11 +87,14 @@ export default function App() {
         try {
           const allItems = await OBR.scene.items.getItems();
           const initialMap: Record<string, AnyTokenData> = {};
+          const initialImagesMap: Record<string, string> = {};
           for (const item of allItems) {
             const td = item.metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
             if (td) initialMap[item.id] = td;
+            const imgUrl = (item as unknown as { image?: { url?: string } }).image?.url;
+            if (imgUrl) initialImagesMap[item.id] = imgUrl;
           }
-          updateState({ allTokensMap: initialMap });
+          updateState({ allTokensMap: initialMap, tokenImagesMap: initialImagesMap });
         } catch (e) {
           console.warn('Could not load initial scene items:', e);
         }
@@ -132,13 +138,16 @@ export default function App() {
 
         OBR.scene.items.onChange(async (items: OBRItem[]) => {
           const currentId = selectedItemIdRef.current;
-          // Update allTokensMap with all tokens that have Chronicles data
+          // Update allTokensMap and tokenImagesMap with all tokens that have Chronicles data
           const newMap: Record<string, AnyTokenData> = {};
+          const newImagesMap: Record<string, string> = {};
           for (const item of items) {
             const td = item.metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
             if (td) newMap[item.id] = td;
+            const imgUrl = (item as unknown as { image?: { url?: string } }).image?.url;
+            if (imgUrl) newImagesMap[item.id] = imgUrl;
           }
-          const partial: Partial<AppState> = { allTokensMap: newMap };
+          const partial: Partial<AppState> = { allTokensMap: newMap, tokenImagesMap: newImagesMap };
           if (currentId) {
             const item = items.find((i) => i.id === currentId);
             if (item) {
@@ -266,8 +275,8 @@ export default function App() {
                     }}
                   >
                     <div style={{ width: 40, height: 40, borderRadius: '50%', border: `2px solid ${playerToken.inspiration ? 'var(--color-gold)' : 'var(--color-border)'}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dark)', boxShadow: playerToken.inspiration ? '0 0 6px 2px var(--color-gold)' : undefined }}>
-                      {playerToken.imageUrl ? (
-                        <img src={playerToken.imageUrl} alt={playerToken.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {(playerToken.imageUrl || state.tokenImagesMap[id]) ? (
+                        <img src={playerToken.imageUrl || state.tokenImagesMap[id]} alt={playerToken.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : <span style={{ fontSize: 18 }}>👤</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>

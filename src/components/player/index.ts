@@ -5,5 +5,6 @@ export { ConditionsTab } from './ConditionsTab';
 export { CharacterTab } from './CharacterTab';
 export { EquipmentTab } from './EquipmentTab';
 export { SpellsTab } from './SpellsTab';
+export { FeaturesTab } from './FeaturesTab';
 export { CalendarTab } from './CalendarTab';
 export { GMTab } from './GMTab';

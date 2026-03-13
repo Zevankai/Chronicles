@@ -170,6 +170,19 @@ export interface ExhaustionLevel {
 }
 
 // ============================================================
+// FEATURES SYSTEM
+// ============================================================
+
+export interface PlayerFeature {
+  id: string;
+  name: string;
+  description: string;
+  maxCharges: number;
+  currentCharges: number;
+  restType: 'short' | 'long'; // recharges on short rest or long rest
+}
+
+// ============================================================
 // REST SYSTEM
 // ============================================================
 
@@ -356,6 +369,16 @@ export interface PlayerData {
 
   // Projects
   projects?: Project[];
+
+  // Features (class features, racial features, etc. with charges)
+  features?: PlayerFeature[];
+
+  // Hit Dice
+  hitDiceMax?: number;
+  hitDiceRemaining?: number;
+
+  // Equipment flags
+  bagDropped?: boolean;
 
   // Meta
   version: number;
