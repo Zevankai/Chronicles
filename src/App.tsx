@@ -12,6 +12,7 @@ interface AppState {
   playerId: string | null;
   selectedItemId: string | null;
   tokenData: AnyTokenData | null;
+  tokenImageUrl: string | null;
   roomData: RoomMetadata | null;
   loading: boolean;
   error: string | null;
@@ -37,6 +38,7 @@ export default function App() {
     playerId: null,
     selectedItemId: null,
     tokenData: null,
+    tokenImageUrl: null,
     roomData: null,
     loading: true,
     error: null,
@@ -97,13 +99,14 @@ export default function App() {
               const items = await OBR.scene.items.getItems([itemId]);
               if (items.length > 0) {
                 const tokenData = items[0].metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
-                updateState({ selectedItemId: itemId, tokenData: tokenData ?? null });
+                const imgUrl = (items[0] as unknown as { image?: { url?: string } }).image?.url ?? null;
+                updateState({ selectedItemId: itemId, tokenData: tokenData ?? null, tokenImageUrl: imgUrl });
               }
             } catch (e) {
               console.warn('Could not load item metadata:', e);
             }
           } else {
-            updateState({ selectedItemId: null, tokenData: null });
+            updateState({ selectedItemId: null, tokenData: null, tokenImageUrl: null });
           }
         });
 
@@ -121,6 +124,7 @@ export default function App() {
             if (item) {
               const tokenData = item.metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
               partial.tokenData = tokenData ?? null;
+              partial.tokenImageUrl = (item as unknown as { image?: { url?: string } }).image?.url ?? null;
             }
           }
           updateState(partial);
@@ -182,16 +186,22 @@ export default function App() {
   }
 
   if (!state.selectedItemId) {
-    // Find all player tokens that have this player ID in their favorites
-    // (player tokens that favor THIS user's session - identify by ownerId match)
-    // Also show tokens that the current user's player character has favorited
+    // Find the current player's own claimed token
     const playerToken = state.playerId
       ? Object.values(state.allTokensMap).find(
           (td) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId
         ) as PlayerData | undefined
       : undefined;
+    // Find the item ID for the player's own token
+    const playerTokenId = state.playerId
+      ? Object.keys(state.allTokensMap).find(
+          (id) => state.allTokensMap[id].tokenType === 'player' && (state.allTokensMap[id] as PlayerData).ownerId === state.playerId
+        )
+      : undefined;
     const favoritedTokenIds: string[] = playerToken?.favorites ?? [];
+    // Exclude the player's own token from favorites display (it's shown separately)
     const favoritedTokens = favoritedTokenIds
+      .filter((id) => id !== playerTokenId)
       .map((id) => ({ id, data: state.allTokensMap[id] }))
       .filter((t) => t.data != null);
 
@@ -207,6 +217,43 @@ export default function App() {
               Select a token on the map to view its details.
             </div>
           </div>
+
+          {/* Player's own character card */}
+          {playerToken && playerTokenId && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="section-header">⚔️ Your Character</div>
+              <button
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', textAlign: 'left', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                onClick={async () => {
+                  try {
+                    await OBR.player.select([playerTokenId]);
+                  } catch (e) {
+                    console.warn('Could not select player token:', e);
+                  }
+                }}
+              >
+                <div style={{ width: 40, height: 40, borderRadius: '50%', border: `2px solid ${playerToken.inspiration ? 'var(--color-gold)' : 'var(--color-border)'}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dark)', boxShadow: playerToken.inspiration ? '0 0 6px 2px var(--color-gold)' : undefined }}>
+                  {playerToken.imageUrl ? (
+                    <img src={playerToken.imageUrl} alt={playerToken.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : <span style={{ fontSize: 18 }}>👤</span>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 'bold', fontSize: 13 }}>{playerToken.name || 'Unnamed'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    {[playerToken.race, playerToken.playerClass, playerToken.level ? `Lv ${playerToken.level}` : ''].filter(Boolean).join(' · ')}
+                  </div>
+                  <div style={{ fontSize: 11, display: 'flex', gap: 8, marginTop: 2 }}>
+                    <span style={{ color: playerToken.currentHp <= playerToken.maxHp * 0.3 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                      ❤️ {playerToken.currentHp}/{playerToken.maxHp}
+                    </span>
+                    <span>🛡 AC {playerToken.ac}</span>
+                    {playerToken.inspiration && <span style={{ color: 'var(--color-gold)' }}>⭐ Inspired</span>}
+                  </div>
+                </div>
+              </button>
+            </div>
+          )}
 
           {/* Favorited tokens */}
           {favoritedTokens.length > 0 && (
@@ -239,7 +286,14 @@ export default function App() {
                     </span>
                     <div>
                       <div style={{ fontWeight: 'bold', fontSize: 12 }}>{(data as { name: string }).name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{data.tokenType}</div>
+                      {data.tokenType === 'player' && (
+                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
+                          ❤️ {(data as PlayerData).currentHp}/{(data as PlayerData).maxHp} · AC {(data as PlayerData).ac}
+                        </div>
+                      )}
+                      {data.tokenType !== 'player' && (
+                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{data.tokenType}</div>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -373,6 +427,7 @@ export default function App() {
         playerId={state.playerId}
         roomData={state.roomData}
         onRoomUpdate={handleRoomUpdate}
+        tokenImageUrl={state.tokenImageUrl}
       />
     </div>
   );

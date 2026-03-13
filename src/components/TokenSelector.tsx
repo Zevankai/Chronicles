@@ -18,6 +18,7 @@ interface TokenSelectorProps {
   playerId: string | null;
   roomData: RoomMetadata | null;
   onRoomUpdate?: (data: RoomMetadata) => void;
+  tokenImageUrl?: string | null;
 }
 
 function NoTokenData({ itemId, isGM, onUpdate }: { itemId: string; isGM: boolean; onUpdate: (data: AnyTokenData) => void }) {
@@ -107,7 +108,7 @@ function createDefaultForType(type: string, currentData: AnyTokenData): AnyToken
   }
 }
 
-export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData, onRoomUpdate }: TokenSelectorProps) {
+export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData, onRoomUpdate, tokenImageUrl }: TokenSelectorProps) {
   const [showTrade, setShowTrade] = useState(false);
 
   if (!data) {
@@ -138,6 +139,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
             onWeatherChange={onWeatherChange}
             onTradeClick={() => setShowTrade(true)}
             itemId={itemId}
+            tokenImageUrl={tokenImageUrl}
           />
           {showTrade && playerId && (
             <TradeSelector

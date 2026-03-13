@@ -336,6 +336,7 @@ export function createDefaultPlayerData(): PlayerData {
     age: '',
     weight: '',
     journalUrl: '',
+    languages: '',
     classFeatures: '',
     speciesFeatures: '',
     feats: '',
