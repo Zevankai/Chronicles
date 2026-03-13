@@ -20,7 +20,7 @@ interface HomeTabProps {
 export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, favoriteTokenIds, currentTokenId, playerId }: HomeTabProps) {
   const canEdit = isOwner || isGM;
   const enc = getEncumbranceStatus(player);
-  const totalWeight = getInventoryWeight(player.inventory);
+  const totalWeight = getInventoryWeight(player.inventory, player.coins);
   const bagCapacity = getPlayerCapacity(player);
 
   const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>

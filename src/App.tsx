@@ -77,6 +77,19 @@ export default function App() {
 
         updateState({ ready: true, isGM, playerId, roomData, loading: false });
 
+        // Populate allTokensMap on initial load so favorites work immediately
+        try {
+          const allItems = await OBR.scene.items.getItems();
+          const initialMap: Record<string, AnyTokenData> = {};
+          for (const item of allItems) {
+            const td = item.metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
+            if (td) initialMap[item.id] = td;
+          }
+          updateState({ allTokensMap: initialMap });
+        } catch (e) {
+          console.warn('Could not load initial scene items:', e);
+        }
+
         OBR.player.onChange(async (player: Player) => {
           if (player.selection && player.selection.length > 0) {
             const itemId = player.selection[0];

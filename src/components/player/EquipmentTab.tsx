@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlayerData, Item, ItemCategory, EquipmentSlot } from '../../types';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
-import { getInventoryWeight, getEncumbranceStatus, getCombatEncumberedThreshold, getOverEncumberedThreshold, getPlayerCapacity, generateId, getModifier } from '../../utils';
+import { getInventoryWeight, getEncumbranceStatus, getCombatEncumberedThreshold, getOverEncumberedThreshold, getPlayerCapacity, generateId, getModifier, parseBodyWeight } from '../../utils';
 
 interface EquipmentTabProps {
   player: PlayerData;
@@ -57,15 +57,6 @@ function getItemWeight(item: Item): number {
 
 function getCoinWeight(coins: { cp: number; sp: number; gp: number; pp: number }): number {
   return (coins.cp + coins.sp + coins.gp + coins.pp) * 0.01;
-}
-
-function getInventoryWeightWithCoins(player: PlayerData): number {
-  const itemWeight = player.inventory.reduce((total, item) => {
-    // Equipped items don't count toward encumbrance
-    if (item.equipped != null) return total;
-    return total + getItemWeight(item) * item.quantity;
-  }, 0);
-  return itemWeight + getCoinWeight(player.coins);
 }
 
 function ItemEditForm({
@@ -356,10 +347,11 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const [overCapacityWarning, setOverCapacityWarning] = useState(false);
   const [auxPickerItem, setAuxPickerItem] = useState<Item | null>(null);
 
-  const totalWeight = getInventoryWeightWithCoins(player);
+  const totalWeight = getInventoryWeight(player.inventory, player.coins);
   const strMod = getModifier(player.attributes.STR);
-  const combatThreshold = getCombatEncumberedThreshold(player.bodyWeight, strMod);
-  const overThreshold = getOverEncumberedThreshold(player.bodyWeight, strMod);
+  const bodyWeight = parseBodyWeight(player);
+  const combatThreshold = getCombatEncumberedThreshold(bodyWeight, strMod);
+  const overThreshold = getOverEncumberedThreshold(bodyWeight, strMod);
   const enc = getEncumbranceStatus(player);
   const isOverEncumbered = enc === 'over';
   const bagCapacity = getPlayerCapacity(player);
@@ -389,15 +381,13 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
     const newEquipped = item.equipped === slot ? null : slot;
     let newInventory = player.inventory.map((i) => i.id === item.id ? { ...i, equipped: newEquipped } : i);
 
-    // Two-handed weapon: also manage SecondaryHand
+    // Two-handed weapon: also unequip anything in SecondaryHand
     if (item.category === 'Two-Handed Weapon') {
       if (newEquipped === 'PrimaryHand') {
-        // Also mark SecondaryHand as occupied by this item's twin-slot
+        // Unequip whatever is in SecondaryHand
         newInventory = newInventory.map((i) =>
-          i.id !== item.id && i.equipped === 'SecondaryHand' ? i : i
+          i.id !== item.id && i.equipped === 'SecondaryHand' ? { ...i, equipped: null } : i
         );
-      } else {
-        // Unequipping: nothing extra needed
       }
     }
 
@@ -405,7 +395,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
     const updatedPlayer = { ...player, inventory: newInventory };
     if (item.category === 'Bag' && newEquipped === null) {
       const newCapacity = getPlayerCapacity(updatedPlayer);
-      const newWeight = getInventoryWeightWithCoins(updatedPlayer);
+      const newWeight = getInventoryWeight(updatedPlayer.inventory, updatedPlayer.coins);
       if (newWeight > newCapacity) {
         setOverCapacityWarning(true);
       }
@@ -417,22 +407,18 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const equipItem = (item: Item, slot: EquipmentSlot | null) => {
     let newInventory = player.inventory.map((i) => i.id === item.id ? { ...i, equipped: slot } : i);
 
-    // Two-handed weapon: check and handle SecondaryHand
+    // Two-handed weapon: auto-unequip SecondaryHand
     if (item.category === 'Two-Handed Weapon' && slot === 'PrimaryHand') {
-      const secondaryOccupant = player.inventory.find(
-        (i) => i.id !== item.id && i.equipped === 'SecondaryHand'
+      newInventory = newInventory.map((i) =>
+        i.id !== item.id && i.equipped === 'SecondaryHand' ? { ...i, equipped: null } : i
       );
-      if (secondaryOccupant) {
-        alert(`Cannot equip two-handed weapon: ${secondaryOccupant.name} is in the Secondary Hand slot. Unequip it first.`);
-        return;
-      }
     }
 
     // Check for over-capacity after unequipping a bag
     const updatedPlayer = { ...player, inventory: newInventory };
     if (item.category === 'Bag' && slot === null) {
       const newCapacity = getPlayerCapacity(updatedPlayer);
-      const newWeight = getInventoryWeightWithCoins(updatedPlayer);
+      const newWeight = getInventoryWeight(updatedPlayer.inventory, updatedPlayer.coins);
       if (newWeight > newCapacity) {
         setOverCapacityWarning(true);
       }
@@ -500,12 +486,24 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
     player.inventory.some((i) => i.equipped === slot && i.category === 'Auxiliary')
   );
 
+  // Check if a two-handed weapon is currently equipped in PrimaryHand
+  const twoHandedInPrimary = player.inventory.find(
+    (i) => i.category === 'Two-Handed Weapon' && i.equipped === 'PrimaryHand'
+  );
+
   const renderInventoryList = (items: Item[], showEquipBtn = false, isAuxView = false) => (
     <div>
       {items.map((item) => {
         const unitWeight = getItemWeight(item);
         const isExpanded = expandedItemId === item.id;
-        const validSlots = getAvailableSlots(item);
+        // Filter SecondaryHand from available slots when a 2H weapon is in PrimaryHand
+        // (unless this item IS the 2H weapon itself)
+        const validSlots = getAvailableSlots(item).filter((slot) => {
+          if (slot === 'SecondaryHand' && twoHandedInPrimary && item.id !== twoHandedInPrimary.id) {
+            return false;
+          }
+          return true;
+        });
 
         return (
           <div key={item.id} style={{ marginBottom: 4 }}>
@@ -698,13 +696,16 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
             {EQUIPMENT_SLOTS.map(({ slot, label, icon }) => {
               const equipped = player.inventory.find((i) => i.equipped === slot);
+              // SecondaryHand is blocked when a 2H weapon is in PrimaryHand
+              const isBlocked = slot === 'SecondaryHand' && !!twoHandedInPrimary;
               return (
                 <div key={slot} style={{
                   background: 'var(--color-bg)',
-                  border: `1px solid ${equipped ? 'var(--color-primary)' : 'var(--color-border-light)'}`,
+                  border: `1px solid ${equipped ? 'var(--color-primary)' : isBlocked ? 'var(--color-warning)' : 'var(--color-border-light)'}`,
                   borderRadius: 4,
                   padding: '4px 6px',
                   fontSize: 11,
+                  opacity: isBlocked ? 0.7 : 1,
                 }}>
                   <div style={{ color: 'var(--color-text-muted)', fontSize: 10 }}>{icon} {label}</div>
                   {equipped ? (
@@ -713,6 +714,10 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                       {canEdit && (
                         <button className="btn-icon" onClick={() => toggleEquip(equipped, slot)} style={{ fontSize: 10 }}>✕</button>
                       )}
+                    </div>
+                  ) : isBlocked ? (
+                    <div style={{ color: 'var(--color-warning)', fontStyle: 'italic', fontSize: 10 }}>
+                      {twoHandedInPrimary!.name} (2H)
                     </div>
                   ) : (
                     <div style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Empty</div>
@@ -774,7 +779,12 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
       {equipPickerItem && (
         <EquipSlotPicker
           item={equipPickerItem}
-          availableSlots={getAvailableSlots(equipPickerItem)}
+          availableSlots={getAvailableSlots(equipPickerItem).filter((slot) => {
+            if (slot === 'SecondaryHand' && twoHandedInPrimary && equipPickerItem.id !== twoHandedInPrimary.id) {
+              return false;
+            }
+            return true;
+          })}
           inventory={player.inventory}
           onEquip={(slot) => equipItem(equipPickerItem, slot)}
           onClose={() => setEquipPickerItem(null)}
