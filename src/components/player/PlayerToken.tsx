@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import OBR from '@owlbear-rodeo/sdk';
 import { PlayerData, CalendarConfig, WeatherData } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { HPBar } from '../common/HPBar';
@@ -42,7 +43,6 @@ export function PlayerToken({
 }: PlayerTokenProps) {
   const canEdit = isOwner || isGM;
   const [editingBanner, setEditingBanner] = useState(false);
-  const [extendedView, setExtendedView] = useState(false);
   const [showImageEditor, setShowImageEditor] = useState(false);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -204,38 +204,21 @@ export function PlayerToken({
         <button
           className="btn-icon"
           title="Extended View"
-          onClick={() => setExtendedView(true)}
+          onClick={() => {
+            if (!itemId) return;
+            const base = window.location.href.split('?')[0];
+            OBR.popover.open({
+              id: 'chronicles-extended',
+              url: `${base}?view=extended&itemId=${encodeURIComponent(itemId)}`,
+              width: 800,
+              height: 700,
+            });
+          }}
           style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start', marginLeft: 4 }}
         >
           ⛶
         </button>
       </div>
-
-      {/* Extended View Modal */}
-      {extendedView && (
-        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
-          <div
-            className="modal"
-            style={{ width: '100%', maxWidth: '100%', height: '100%', maxHeight: '100%', borderRadius: 0, overflowY: 'auto', margin: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <span className="modal-title">👤 {player.name} — Extended View</span>
-              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
-            </div>
-            <TabPanel tabs={tabs} defaultTab="home" twoRows>
-              <HomeTab player={player} onChange={onUpdate} isOwner={isOwner} isGM={isGM} weather={weather?.description} onTradeClick={onTradeClick} currentTokenId={itemId} playerId={playerId} />
-              <SkillsTab player={player} onChange={onUpdate} canEdit={canEdit} />
-              <ConditionsTab player={player} onChange={onUpdate} canEdit={canEdit} isGM={isGM} />
-              <CharacterTab player={player} onChange={onUpdate} canEdit={canEdit} />
-              <EquipmentTab player={player} onChange={onUpdate} canEdit={canEdit} />
-              <SpellsTab player={player} onChange={onUpdate} canEdit={canEdit} />
-              <CalendarTab calendar={cal} weather={weather} onCalendarChange={onCalendarChange} onWeatherChange={onWeatherChange} isGM={isGM} />
-              <GMTab tokenType={player.tokenType} claimable={player.claimable} claimedBy={player.claimedBy} onTokenTypeChange={(tt) => onUpdate({ ...player, tokenType: tt as PlayerData['tokenType'] })} onClaimableChange={(v) => onUpdate({ ...player, claimable: v })} calendar={cal} onCalendarChange={onCalendarChange} isGM={isGM} tokenData={player} />
-            </TabPanel>
-          </div>
-        </div>
-      )}
 
       {/* Image Editor Modal */}
       {showImageEditor && canEdit && (
@@ -346,7 +329,6 @@ export function PlayerToken({
           isGM={isGM}
           weather={weather?.description}
           onTradeClick={onTradeClick}
-          currentTokenId={itemId}
           playerId={playerId}
         />
         <SkillsTab player={player} onChange={onUpdate} canEdit={canEdit} />

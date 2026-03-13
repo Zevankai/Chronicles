@@ -1,7 +1,6 @@
 import React from 'react';
 import { PlayerData } from '../../types';
 import { StatBox } from '../common/StatBox';
-import { ConditionGrid } from '../common/ConditionBadge';
 import { getEncumbranceStatus, getInventoryWeight, getPlayerCapacity } from '../../utils';
 import { ATTRIBUTES } from '../../constants';
 
@@ -12,12 +11,10 @@ interface HomeTabProps {
   isGM: boolean;
   weather?: string;
   onTradeClick?: () => void;
-  favoriteTokenIds?: string[]; // IDs of tokens to show as favorites
-  currentTokenId?: string; // ID of this token
   playerId?: string | null;
 }
 
-export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, favoriteTokenIds, currentTokenId, playerId }: HomeTabProps) {
+export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, playerId }: HomeTabProps) {
   const canEdit = isOwner || isGM;
   const enc = getEncumbranceStatus(player);
   const totalWeight = getInventoryWeight(player.inventory, player.coins);
@@ -36,16 +33,6 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
     player.conditions.length > 0 ||
     player.exhaustionLevel > 0 ||
     player.injuries.some((i) => !i.healed);
-
-  // Favorites: track whether this token is favorited
-  const isFavorited = currentTokenId && (player.favorites || []).includes(currentTokenId);
-  const toggleFavorite = () => {
-    if (!currentTokenId) return;
-    const favs = player.favorites || [];
-    update('favorites', favs.includes(currentTokenId)
-      ? favs.filter((f) => f !== currentTokenId)
-      : [...favs, currentTokenId]);
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -67,13 +54,30 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
             onChange={(v) => update('passiveInsight', v)} min={1} max={30} />
         </div>
         {canEdit && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Current HP</label>
+            <input
+              type="number"
+              value={player.currentHp}
+              min={0}
+              max={player.maxHp}
+              onChange={(e) => update('currentHp', Math.min(player.maxHp, Math.max(0, parseInt(e.target.value) || 0)))}
+              style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
+            />
             <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Max HP</label>
             <input
               type="number"
               value={player.maxHp}
               min={1}
               onChange={(e) => update('maxHp', parseInt(e.target.value) || 1)}
+              style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
+            />
+            <label className="field-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Temp HP</label>
+            <input
+              type="number"
+              value={player.tempHp}
+              min={0}
+              onChange={(e) => update('tempHp', Math.max(0, parseInt(e.target.value) || 0))}
               style={{ width: 60, padding: '2px 4px', fontSize: 13 }}
             />
           </div>
@@ -133,11 +137,13 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
         <div>
           <div className="section-header">Active Conditions</div>
           {player.conditions.length > 0 && (
-            <ConditionGrid
-              active={player.conditions}
-              onChange={(c) => update('conditions', c)}
-              readonly={!canEdit}
-            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+              {player.conditions.map((cond) => (
+                <span key={cond} className="condition-badge" style={{ padding: '2px 8px', borderRadius: 12, fontSize: 12, background: 'var(--color-surface-dark)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
+                  {cond}
+                </span>
+              ))}
+            </div>
           )}
           {player.exhaustionLevel > 0 && (
             <div className="badge badge-warning" style={{ marginTop: 4, padding: '3px 6px', display: 'inline-block' }}>
@@ -194,15 +200,6 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
           </div>
         )}
         <div style={{ display: 'flex', gap: 4 }}>
-          {canEdit && currentTokenId && (
-            <button
-              className={`btn btn-sm ${isFavorited ? 'btn-warning' : 'btn-secondary'}`}
-              onClick={toggleFavorite}
-              title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-            >
-              {isFavorited ? '⭐ Favorited' : '☆ Favorite'}
-            </button>
-          )}
           {(isOwner || isGM) && onTradeClick && (
             <button className="btn btn-secondary btn-sm" onClick={onTradeClick}>
               💱 Trade

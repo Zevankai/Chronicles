@@ -304,7 +304,7 @@ export interface PlayerData {
   exhaustionLevel: number; // 0-10
   injuries: Injury[];
   scars: Scar[];
-  favorites?: string[]; // favorite token IDs
+
   lastRestBonus?: RestBonus;
   lastShortRestBonus?: RestBonus;
   lastLongRestBonus?: RestBonus;

@@ -4,6 +4,7 @@ import { AnyTokenData, PlayerData, MerchantData, RoomMetadata } from './types';
 import { TOKEN_NAMESPACE, ROOM_NAMESPACE, DEFAULT_CALENDAR, DEFAULT_EXHAUSTION_EFFECTS, DEFAULT_TRADE_RANGE } from './constants';
 import { generateWeather } from './utils';
 import { TokenSelector } from './components/TokenSelector';
+import { TradeSelector } from './components/trading/TradeSelector';
 import './styles/theme.css';
 
 interface AppState {
@@ -16,7 +17,7 @@ interface AppState {
   roomData: RoomMetadata | null;
   loading: boolean;
   error: string | null;
-  // Map of tokenId -> token data for favorited token resolution
+  // Map of tokenId -> token data for scene-wide token resolution
   allTokensMap: Record<string, AnyTokenData>;
 }
 
@@ -79,7 +80,7 @@ export default function App() {
 
         updateState({ ready: true, isGM, playerId, roomData, loading: false });
 
-        // Populate allTokensMap on initial load so favorites work immediately
+        // Populate allTokensMap on initial load
         try {
           const allItems = await OBR.scene.items.getItems();
           const initialMap: Record<string, AnyTokenData> = {};
@@ -92,23 +93,42 @@ export default function App() {
           console.warn('Could not load initial scene items:', e);
         }
 
-        OBR.player.onChange(async (player: Player) => {
-          if (player.selection && player.selection.length > 0) {
-            const itemId = player.selection[0];
-            try {
-              const items = await OBR.scene.items.getItems([itemId]);
-              if (items.length > 0) {
-                const tokenData = items[0].metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
-                const imgUrl = (items[0] as unknown as { image?: { url?: string } }).image?.url ?? null;
-                updateState({ selectedItemId: itemId, tokenData: tokenData ?? null, tokenImageUrl: imgUrl });
-              }
-            } catch (e) {
-              console.warn('Could not load item metadata:', e);
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlViewMode = urlParams.get('view');
+        const urlViewItemId = urlParams.get('itemId');
+
+        if (urlViewItemId && (urlViewMode === 'extended' || urlViewMode === 'trade')) {
+          // Popover mode: load the specific item and keep it fixed
+          try {
+            const items = await OBR.scene.items.getItems([urlViewItemId]);
+            if (items.length > 0) {
+              const tokenData = items[0].metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
+              const imgUrl = (items[0] as unknown as { image?: { url?: string } }).image?.url ?? null;
+              updateState({ selectedItemId: urlViewItemId, tokenData: tokenData ?? null, tokenImageUrl: imgUrl });
             }
-          } else {
-            updateState({ selectedItemId: null, tokenData: null, tokenImageUrl: null });
+          } catch (e) {
+            console.warn('Could not load item for popover:', e);
           }
-        });
+        } else {
+          // Normal mode: listen for player selection changes
+          OBR.player.onChange(async (player: Player) => {
+            if (player.selection && player.selection.length > 0) {
+              const itemId = player.selection[0];
+              try {
+                const items = await OBR.scene.items.getItems([itemId]);
+                if (items.length > 0) {
+                  const tokenData = items[0].metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
+                  const imgUrl = (items[0] as unknown as { image?: { url?: string } }).image?.url ?? null;
+                  updateState({ selectedItemId: itemId, tokenData: tokenData ?? null, tokenImageUrl: imgUrl });
+                }
+              } catch (e) {
+                console.warn('Could not load item metadata:', e);
+              }
+            } else {
+              updateState({ selectedItemId: null, tokenData: null, tokenImageUrl: null });
+            }
+          });
+        }
 
         OBR.scene.items.onChange(async (items: OBRItem[]) => {
           const currentId = selectedItemIdRef.current;
@@ -185,25 +205,34 @@ export default function App() {
     );
   }
 
+  // Popover: trade view
+  const urlParams = new URLSearchParams(window.location.search);
+  const viewMode = urlParams.get('view');
+  if (viewMode === 'trade' && state.selectedItemId && state.tokenData && state.tokenData.tokenType === 'player' && state.playerId) {
+    const player = state.tokenData as PlayerData;
+    return (
+      <div className="chronicles-app">
+        <TradeSelector
+          currentTokenId={state.selectedItemId}
+          currentData={player}
+          playerId={state.playerId}
+          isGM={state.isGM}
+          roomData={state.roomData}
+          onRoomUpdate={handleRoomUpdate}
+          onTradeComplete={(updated) => handleTokenUpdate(updated)}
+          onClose={() => OBR.popover.close('chronicles-trade')}
+        />
+      </div>
+    );
+  }
+
   if (!state.selectedItemId) {
-    // Find the current player's own claimed token
-    const playerToken = state.playerId
-      ? Object.values(state.allTokensMap).find(
-          (td) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId
-        ) as PlayerData | undefined
-      : undefined;
-    // Find the item ID for the player's own token
-    const playerTokenId = state.playerId
-      ? Object.keys(state.allTokensMap).find(
-          (id) => state.allTokensMap[id].tokenType === 'player' && (state.allTokensMap[id] as PlayerData).ownerId === state.playerId
-        )
-      : undefined;
-    const favoritedTokenIds: string[] = playerToken?.favorites ?? [];
-    // Exclude the player's own token from favorites display (it's shown separately)
-    const favoritedTokens = favoritedTokenIds
-      .filter((id) => id !== playerTokenId)
-      .map((id) => ({ id, data: state.allTokensMap[id] }))
-      .filter((t) => t.data != null);
+    // Find ALL player tokens claimed by this player
+    const playerTokenEntries = state.playerId
+      ? Object.entries(state.allTokensMap)
+          .filter(([, td]) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId)
+          .map(([id, td]) => ({ id, data: td as PlayerData }))
+      : [];
 
     return (
       <div className="chronicles-app">
@@ -218,82 +247,41 @@ export default function App() {
             </div>
           </div>
 
-          {/* Player's own character card */}
-          {playerToken && playerTokenId && (
+          {/* Player's claimed character cards */}
+          {playerTokenEntries.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div className="section-header">⚔️ Your Character</div>
-              <button
-                className="btn btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', textAlign: 'left', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                onClick={async () => {
-                  try {
-                    await OBR.player.select([playerTokenId]);
-                  } catch (e) {
-                    console.warn('Could not select player token:', e);
-                  }
-                }}
-              >
-                <div style={{ width: 40, height: 40, borderRadius: '50%', border: `2px solid ${playerToken.inspiration ? 'var(--color-gold)' : 'var(--color-border)'}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dark)', boxShadow: playerToken.inspiration ? '0 0 6px 2px var(--color-gold)' : undefined }}>
-                  {playerToken.imageUrl ? (
-                    <img src={playerToken.imageUrl} alt={playerToken.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : <span style={{ fontSize: 18 }}>👤</span>}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 'bold', fontSize: 13 }}>{playerToken.name || 'Unnamed'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                    {[playerToken.race, playerToken.playerClass, playerToken.level ? `Lv ${playerToken.level}` : ''].filter(Boolean).join(' · ')}
-                  </div>
-                  <div style={{ fontSize: 11, display: 'flex', gap: 8, marginTop: 2 }}>
-                    <span style={{ color: playerToken.currentHp <= playerToken.maxHp * 0.3 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                      ❤️ {playerToken.currentHp}/{playerToken.maxHp}
-                    </span>
-                    <span>🛡 AC {playerToken.ac}</span>
-                    {playerToken.inspiration && <span style={{ color: 'var(--color-gold)' }}>⭐ Inspired</span>}
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* Favorited tokens */}
-          {favoritedTokens.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <div className="section-header">⭐ Favorited Tokens</div>
+              <div className="section-header">⚔️ Your Character{playerTokenEntries.length > 1 ? 's' : ''}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {favoritedTokens.map(({ id, data }) => (
+                {playerTokenEntries.map(({ id, data: playerToken }) => (
                   <button
                     key={id}
                     className="btn btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', textAlign: 'left' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', textAlign: 'left', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
                     onClick={async () => {
                       try {
-                        const items = await OBR.scene.items.getItems([id]);
-                        if (items.length > 0) {
-                          await OBR.player.select([id]);
-                        }
+                        await OBR.player.select([id]);
                       } catch (e) {
-                        console.warn('Could not select favorited token:', e);
+                        console.warn('Could not select player token:', e);
                       }
                     }}
                   >
-                    <span style={{ fontSize: 18 }}>
-                      {data.tokenType === 'player' ? '👤' :
-                       data.tokenType === 'monster' ? '👹' :
-                       data.tokenType === 'companion' ? '🐾' :
-                       data.tokenType === 'storage' ? '📦' :
-                       data.tokenType === 'merchant' ? '🏪' :
-                       data.tokenType === 'npc' ? '🧙' : '📜'}
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 'bold', fontSize: 12 }}>{(data as { name: string }).name}</div>
-                      {data.tokenType === 'player' && (
-                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
-                          ❤️ {(data as PlayerData).currentHp}/{(data as PlayerData).maxHp} · AC {(data as PlayerData).ac}
-                        </div>
-                      )}
-                      {data.tokenType !== 'player' && (
-                        <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{data.tokenType}</div>
-                      )}
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', border: `2px solid ${playerToken.inspiration ? 'var(--color-gold)' : 'var(--color-border)'}`, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dark)', boxShadow: playerToken.inspiration ? '0 0 6px 2px var(--color-gold)' : undefined }}>
+                      {playerToken.imageUrl ? (
+                        <img src={playerToken.imageUrl} alt={playerToken.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : <span style={{ fontSize: 18 }}>👤</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: 13 }}>{playerToken.name || 'Unnamed'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                        {[playerToken.race, playerToken.playerClass, playerToken.level ? `Lv ${playerToken.level}` : ''].filter(Boolean).join(' · ')}
+                      </div>
+                      <div style={{ fontSize: 11, display: 'flex', gap: 8, marginTop: 2 }}>
+                        <span style={{ color: playerToken.currentHp <= playerToken.maxHp * 0.3 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                          ❤️ {playerToken.currentHp}/{playerToken.maxHp}
+                        </span>
+                        <span>🛡 AC {playerToken.ac}</span>
+                        {playerToken.inspiration && <span style={{ color: 'var(--color-gold)' }}>⭐ Inspired</span>}
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -419,6 +407,16 @@ export default function App() {
 
   return (
     <div className="chronicles-app">
+      {viewMode === 'extended' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 8px', background: 'var(--color-primary-dark)', borderBottom: '1px solid var(--color-border)' }}>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={() => OBR.popover.close('chronicles-extended')}
+          >
+            ✕ Close
+          </button>
+        </div>
+      )}
       <TokenSelector
         itemId={state.selectedItemId}
         data={state.tokenData}
