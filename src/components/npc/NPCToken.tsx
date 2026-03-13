@@ -1,6 +1,7 @@
 import React from 'react';
-import { NPCData, Alignment } from '../../types';
+import { NPCData, Alignment, CalendarConfig } from '../../types';
 import { TabPanel } from '../common/TabPanel';
+import { GMTab } from '../player/GMTab';
 import { ALIGNMENTS } from '../../constants';
 import { generateId } from '../../utils';
 
@@ -8,9 +9,12 @@ interface NPCTokenProps {
   npc: NPCData;
   onUpdate: (updated: NPCData) => void;
   isGM: boolean;
+  calendar?: CalendarConfig;
+  onCalendarChange?: (cal: CalendarConfig) => void;
+  onTokenTypeChange?: (type: string) => void;
 }
 
-export function NPCToken({ npc, onUpdate, isGM }: NPCTokenProps) {
+export function NPCToken({ npc, onUpdate, isGM, calendar, onCalendarChange, onTokenTypeChange }: NPCTokenProps) {
   const update = <K extends keyof NPCData>(key: K, value: NPCData[K]) =>
     onUpdate({ ...npc, [key]: value });
 
@@ -20,7 +24,7 @@ export function NPCToken({ npc, onUpdate, isGM }: NPCTokenProps) {
     { id: 'profile', label: '👤 Profile' },
     { id: 'narrative', label: '📜 Narrative' },
     { id: 'relations', label: '🤝 Relations' },
-    ...(isGM ? [{ id: 'gm', label: '🔒 GM' }] : []),
+    ...(isGM ? [{ id: 'secrets', label: '🔒 Secrets' }, { id: 'gm', label: '⚙️ GM' }] : []),
   ];
 
   const profilePanel = (
@@ -193,8 +197,21 @@ export function NPCToken({ npc, onUpdate, isGM }: NPCTokenProps) {
     </div>
   );
 
+  const gmTokenPanel = (
+    <GMTab
+      tokenType={npc.tokenType}
+      claimable={npc.claimable}
+      claimedBy={npc.claimedBy}
+      onTokenTypeChange={(t) => onTokenTypeChange?.(t)}
+      onClaimableChange={(v) => onUpdate({ ...npc, claimable: v })}
+      calendar={calendar}
+      onCalendarChange={onCalendarChange}
+      isGM={isGM}
+    />
+  );
+
   const panels = [profilePanel, narrativePanel, relationsPanel];
-  if (isGM) panels.push(gmPanel);
+  if (isGM) { panels.push(gmPanel); panels.push(gmTokenPanel); }
 
   return (
     <div>

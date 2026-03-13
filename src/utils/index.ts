@@ -32,11 +32,29 @@ export function getModifierString(score: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`;
 }
 
-export function getProficiencyComponent(profLevel: string, profBonus: number): number {
+export function getProficiencyByLevel(level: number): number {
+  if (level >= 17) return 6;
+  if (level >= 13) return 5;
+  if (level >= 9) return 4;
+  if (level >= 5) return 3;
+  return 2;
+}
+
+export function getHalfProficiencyByLevel(level: number): number {
+  if (level >= 13) return 3;
+  if (level >= 9) return 2;
+  return 1;
+}
+
+export function getExpertiseByLevel(level: number): number {
+  return getProficiencyByLevel(level) * 2;
+}
+
+export function getProficiencyComponent(profLevel: string, level: number): number {
   switch (profLevel) {
-    case 'half': return Math.floor(profBonus / 2);
-    case 'proficient': return profBonus;
-    case 'expertise': return profBonus * 2;
+    case 'half': return getHalfProficiencyByLevel(level);
+    case 'proficient': return getProficiencyByLevel(level);
+    case 'expertise': return getExpertiseByLevel(level);
     default: return 0;
   }
 }
@@ -45,15 +63,21 @@ export function getSkillModifier(
   skillName: string,
   skills: Skills,
   attributes: AttributeScores,
-  profBonus: number
+  level: number
 ): number {
   const attr = SKILL_ATTRIBUTE_MAP[skillName];
   if (!attr) return 0;
   const attrMod = getModifier(attributes[attr]);
   const skillData = skills[skillName as keyof Skills];
   if (!skillData) return attrMod;
-  const profComp = getProficiencyComponent(skillData.proficiency, profBonus);
+  const profComp = getProficiencyComponent(skillData.proficiency, level);
   return attrMod + profComp + (skillData.bonus || 0);
+}
+
+export function getInjuryMaxHp(severity: string): number {
+  if (severity === 'critical') return 6;
+  if (severity === 'severe') return 4;
+  return 2;
 }
 
 export function cycleProficiency(current: string): string {
@@ -136,10 +160,12 @@ export function getBodyLocation(): BodyLocation {
 // ============================================================
 
 export function getSeason(calendar: CalendarConfig): string {
+  const month = calendar.months[calendar.currentMonth];
+  if (month?.season) return month.season;
   const totalMonths = calendar.months.length;
-  const month = calendar.currentMonth;
-  const quarter = Math.floor((month / totalMonths) * 4);
-  return ['Winter', 'Spring', 'Summer', 'Autumn'][quarter] || 'Spring';
+  const quarter = Math.floor((calendar.currentMonth / totalMonths) * 4);
+  const seasons = calendar.seasons || ['Winter', 'Spring', 'Summer', 'Autumn'];
+  return seasons[quarter] || 'Spring';
 }
 
 export function formatCalendarDate(calendar: CalendarConfig): string {
@@ -149,9 +175,10 @@ export function formatCalendarDate(calendar: CalendarConfig): string {
 }
 
 export function formatTime(hour: number, minute: number): string {
-  const h = hour.toString().padStart(2, '0');
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 || 12;
   const m = minute.toString().padStart(2, '0');
-  return `${h}:${m}`;
+  return `${h12}:${m} ${period}`;
 }
 
 export function advanceCalendar(calendar: CalendarConfig, hours: number): CalendarConfig {
@@ -202,6 +229,7 @@ export function generateWeather(biome: Biome, calendar: CalendarConfig): Weather
   const temperature = baseTemp + seasonMod + variance + hourMod;
 
   const humidity = Math.floor(Math.random() * 60) + 20;
+  // Wind speed in MPH (5-44 mph range)
   const windSpeed = Math.floor(Math.random() * 40) + 5;
 
   return {
@@ -209,7 +237,7 @@ export function generateWeather(biome: Biome, calendar: CalendarConfig): Weather
     temperature,
     humidity,
     windSpeed,
-    description: `${weatherType}, ${temperature}°C, winds ${windSpeed}km/h`,
+    description: `${weatherType}, ${temperature}°C, winds ${windSpeed} mph`,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -270,6 +298,7 @@ export function createDefaultPlayerData(): PlayerData {
     conditions: [],
     exhaustionLevel: 0,
     injuries: [],
+    scars: [],
     alignment: 'TN',
     gender: '',
     eyes: '',

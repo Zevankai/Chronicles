@@ -1,113 +1,246 @@
-import React from 'react';
-import { PlayerData } from '../../types';
-import { DEFAULT_EXHAUSTION_EFFECTS } from '../../constants';
+import React, { useState } from 'react';
+import { CalendarConfig, TokenType } from '../../types';
 
 interface GMTabProps {
-  player: PlayerData;
-  onChange: (updated: PlayerData) => void;
+  tokenType: string;
+  claimable?: boolean;
+  claimedBy?: string;
+  onTokenTypeChange: (type: string) => void;
+  onClaimableChange: (value: boolean) => void;
+  calendar?: CalendarConfig;
+  onCalendarChange?: (cal: CalendarConfig) => void;
+  isGM: boolean;
+  extraContent?: React.ReactNode;
 }
 
-export function GMTab({ player, onChange }: GMTabProps) {
-  const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>
-    onChange({ ...player, [key]: value });
+const TOKEN_TYPES: TokenType[] = ['player', 'monster', 'companion', 'storage', 'lore', 'npc', 'merchant'];
 
-  const exhaustionConfig = player.exhaustionConfig?.length ? player.exhaustionConfig : DEFAULT_EXHAUSTION_EFFECTS;
+export function GMTab({
+  tokenType,
+  claimable,
+  claimedBy,
+  onTokenTypeChange,
+  onClaimableChange,
+  calendar,
+  onCalendarChange,
+  isGM,
+  extraContent,
+}: GMTabProps) {
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false);
 
-  const updateExhaustionEffect = (level: number, effect: string) => {
-    const config = exhaustionConfig.map((e) =>
-      e.level === level ? { ...e, effect } : e
+  if (!isGM) return (
+    <div style={{ fontSize: 13, color: 'var(--color-text-muted)', textAlign: 'center', padding: 16 }}>
+      GM access required.
+    </div>
+  );
+
+  const updateMonth = (index: number, field: string, value: string | number) => {
+    if (!calendar || !onCalendarChange) return;
+    const months = calendar.months.map((m, i) =>
+      i === index ? { ...m, [field]: value } : m
     );
-    update('exhaustionConfig', config);
+    onCalendarChange({ ...calendar, months });
+  };
+
+  const addMonth = () => {
+    if (!calendar || !onCalendarChange) return;
+    onCalendarChange({
+      ...calendar,
+      months: [...calendar.months, { name: 'New Month', days: 30, season: (calendar.seasons || ['Spring'])[0] }],
+    });
+  };
+
+  const removeMonth = (index: number) => {
+    if (!calendar || !onCalendarChange) return;
+    onCalendarChange({ ...calendar, months: calendar.months.filter((_, i) => i !== index) });
+  };
+
+  const addSeason = () => {
+    if (!calendar || !onCalendarChange) return;
+    const seasons = [...(calendar.seasons || []), 'New Season'];
+    onCalendarChange({ ...calendar, seasons });
+  };
+
+  const updateSeason = (index: number, value: string) => {
+    if (!calendar || !onCalendarChange) return;
+    const seasons = (calendar.seasons || []).map((s, i) => i === index ? value : s);
+    onCalendarChange({ ...calendar, seasons });
+  };
+
+  const removeSeason = (index: number) => {
+    if (!calendar || !onCalendarChange) return;
+    const seasons = (calendar.seasons || []).filter((_, i) => i !== index);
+    onCalendarChange({ ...calendar, seasons });
+  };
+
+  const updateWeekDay = (index: number, value: string) => {
+    if (!calendar || !onCalendarChange) return;
+    const weekDayNames = calendar.weekDayNames.map((d, i) => i === index ? value : d);
+    onCalendarChange({ ...calendar, weekDayNames });
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* XP & Inspiration */}
+      {/* Token Type */}
       <div>
-        <div className="section-header">Advancement</div>
+        <div className="section-header">Token Settings</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
-            <label className="field-label">Experience Points</label>
-            <input
-              type="number"
-              value={player.xp}
-              min={0}
-              onChange={(e) => update('xp', parseInt(e.target.value) || 0)}
-            />
+            <label className="field-label">Token Type</label>
+            <select value={tokenType} onChange={(e) => onTokenTypeChange(e.target.value)}>
+              {TOKEN_TYPES.map((t) => (
+                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
+            </select>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={player.inspiration}
-                onChange={(e) => update('inspiration', e.target.checked)}
-              />
-              <span style={{ fontSize: 13 }}>Inspiration</span>
-            </label>
+          <div>
+            <label className="field-label">Player Claiming</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={!!claimable}
+                  onChange={(e) => onClaimableChange(e.target.checked)}
+                />
+                <span style={{ fontSize: 12 }}>Claimable</span>
+              </label>
+            </div>
+            {claimedBy && (
+              <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                Claimed by: {claimedBy}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Death Saves */}
-      <div>
-        <div className="section-header">Death Saves</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div>
-            <label className="field-label">Successes</label>
-            <input
-              type="number"
-              value={player.deathSaves.successes}
-              min={0}
-              max={3}
-              onChange={(e) => update('deathSaves', { ...player.deathSaves, successes: parseInt(e.target.value) || 0 })}
-            />
+      {/* Extra content (player-specific GM fields) */}
+      {extraContent}
+
+      {/* Calendar Settings */}
+      {calendar && onCalendarChange && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="section-header" style={{ marginBottom: 0 }}>Calendar Settings</div>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => setShowCalendarSettings(!showCalendarSettings)}
+            >
+              {showCalendarSettings ? 'Collapse' : 'Expand'}
+            </button>
           </div>
-          <div>
-            <label className="field-label">Failures</label>
-            <input
-              type="number"
-              value={player.deathSaves.failures}
-              min={0}
-              max={3}
-              onChange={(e) => update('deathSaves', { ...player.deathSaves, failures: parseInt(e.target.value) || 0 })}
-            />
-          </div>
+
+          {showCalendarSettings && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
+              {/* Year suffix */}
+              <div>
+                <label className="field-label">Year Suffix</label>
+                <input
+                  type="text"
+                  value={calendar.yearSuffix}
+                  onChange={(e) => onCalendarChange({ ...calendar, yearSuffix: e.target.value })}
+                  placeholder="e.g. A.S.C."
+                />
+              </div>
+
+              {/* Days per week */}
+              <div>
+                <label className="field-label">Days per Week</label>
+                <input
+                  type="number"
+                  value={calendar.daysPerWeek}
+                  min={1}
+                  max={14}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value) || 7;
+                    const weekDayNames = Array.from({ length: n }, (_, i) => calendar.weekDayNames[i] || `Day ${i + 1}`);
+                    onCalendarChange({ ...calendar, daysPerWeek: n, weekDayNames });
+                  }}
+                />
+              </div>
+
+              {/* Weekday names */}
+              <div>
+                <div className="field-label" style={{ marginBottom: 4 }}>Day Names</div>
+                {calendar.weekDayNames.map((day, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3, alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, color: 'var(--color-text-muted)', width: 20, textAlign: 'right' }}>{i + 1}.</span>
+                    <input
+                      type="text"
+                      value={day}
+                      onChange={(e) => updateWeekDay(i, e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Seasons */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div className="field-label">Seasons</div>
+                  <button className="btn btn-sm btn-secondary" onClick={addSeason}>+ Add</button>
+                </div>
+                {(calendar.seasons || []).map((season, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3, alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={season}
+                      onChange={(e) => updateSeason(i, e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button className="btn-icon" onClick={() => removeSeason(i)}>🗑</button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Months */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div className="field-label">Months ({calendar.months.length})</div>
+                  <button className="btn btn-sm btn-secondary" onClick={addMonth}>+ Add</button>
+                </div>
+                {calendar.months.map((month, i) => (
+                  <div key={i} style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border-light)', borderRadius: 4, padding: 6, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 4, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={month.name}
+                        onChange={(e) => updateMonth(i, 'name', e.target.value)}
+                        placeholder="Month name"
+                        style={{ flex: 2 }}
+                      />
+                      <input
+                        type="number"
+                        value={month.days}
+                        min={1}
+                        max={99}
+                        onChange={(e) => updateMonth(i, 'days', parseInt(e.target.value) || 30)}
+                        style={{ width: 50 }}
+                        title="Days"
+                      />
+                      <button className="btn-icon" onClick={() => removeMonth(i)}>🗑</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>Season:</span>
+                      <select
+                        value={month.season || ''}
+                        onChange={(e) => updateMonth(i, 'season', e.target.value)}
+                        style={{ flex: 1, fontSize: 11 }}
+                      >
+                        <option value="">None</option>
+                        {(calendar.seasons || ['Spring', 'Summer', 'Autumn', 'Winter']).map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* Hidden Notes */}
-      <div>
-        <label className="field-label">Hidden Notes (GM Only)</label>
-        <textarea
-          value={player.hiddenNotes}
-          onChange={(e) => update('hiddenNotes', e.target.value)}
-          rows={5}
-          placeholder="Private notes visible only to GM..."
-        />
-      </div>
-
-      {/* Exhaustion Config */}
-      <div>
-        <div className="section-header">Exhaustion Level Effects</div>
-        {exhaustionConfig.map((e) => (
-          <div key={e.level} style={{ display: 'grid', gridTemplateColumns: '40px 1fr', gap: 6, marginBottom: 4, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--color-primary)' }}>
-              L{e.level}
-            </span>
-            <input
-              type="text"
-              value={e.effect}
-              onChange={(ev) => updateExhaustionEffect(e.level, ev.target.value)}
-            />
-          </div>
-        ))}
-        <button
-          className="btn btn-sm btn-secondary"
-          onClick={() => update('exhaustionConfig', DEFAULT_EXHAUSTION_EFFECTS)}
-        >
-          Reset to Defaults
-        </button>
-      </div>
+      )}
     </div>
   );
 }

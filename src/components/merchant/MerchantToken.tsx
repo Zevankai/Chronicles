@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { MerchantData, Item } from '../../types';
+import { MerchantData, Item, CalendarConfig } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { GMTab } from '../player/GMTab';
 import { ITEM_CATEGORY_WEIGHTS } from '../../constants';
 import { generateId } from '../../utils';
 
@@ -11,16 +12,19 @@ interface MerchantTokenProps {
   isGM: boolean;
   onBuyItem?: (item: Item, quantity: number) => void;
   onSellItem?: (item: Item, quantity: number) => void;
+  calendar?: CalendarConfig;
+  onCalendarChange?: (cal: CalendarConfig) => void;
+  onTokenTypeChange?: (type: string) => void;
 }
 
-export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem }: MerchantTokenProps) {
+export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem, calendar, onCalendarChange, onTokenTypeChange }: MerchantTokenProps) {
   const [buyQty, setBuyQty] = useState<Record<string, number>>({});
   const update = <K extends keyof MerchantData>(key: K, value: MerchantData[K]) =>
     onUpdate({ ...merchant, [key]: value });
 
   const tabs = [
     { id: 'shop', label: '🛒 Shop' },
-    ...(isGM ? [{ id: 'config', label: '⚙️ Config' }, { id: 'notes', label: '📝 Notes' }] : []),
+    ...(isGM ? [{ id: 'config', label: '⚙️ Config' }, { id: 'notes', label: '📝 Notes' }, { id: 'gm', label: '🔒 GM' }] : []),
   ];
 
   const shopPanel = (
@@ -142,10 +146,24 @@ export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem 
     </div>
   );
 
+  const gmTokenPanel = (
+    <GMTab
+      tokenType={merchant.tokenType}
+      claimable={merchant.claimable}
+      claimedBy={merchant.claimedBy}
+      onTokenTypeChange={(t) => onTokenTypeChange?.(t)}
+      onClaimableChange={(v) => onUpdate({ ...merchant, claimable: v })}
+      calendar={calendar}
+      onCalendarChange={onCalendarChange}
+      isGM={isGM}
+    />
+  );
+
   const panels = [shopPanel];
   if (isGM) {
     panels.push(configPanel);
     panels.push(notesPanel);
+    panels.push(gmTokenPanel);
   }
 
   return (

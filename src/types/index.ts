@@ -59,7 +59,26 @@ export interface Item {
   description?: string;
   value?: number; // in CP
   equipped?: EquipmentSlot | null;
-  properties?: Record<string, unknown>;
+  properties?: string; // notes/properties as text
+
+  // Weapon fields
+  damage?: string;
+  hitModifier?: number;
+  damageModifier?: number;
+
+  // Armor/Shield fields
+  acBonus?: number;
+
+  // Attunement & Charges
+  requiresAttunement?: boolean;
+  attuned?: boolean;
+  maxCharges?: number;
+  currentCharges?: number;
+
+  // Bag/Auxiliary fields
+  unitCapacity?: number;
+  itemMaxCapacity?: number;
+  allowedItemTypes?: ItemCategory[];
 }
 
 export interface Coins {
@@ -126,8 +145,19 @@ export interface Injury {
   severity: InjurySeverity;
   location: BodyLocation;
   description: string;
+  currentHp: number; // starts at max (6/4/2), heals down to 0
+  maxHp: number; // 6 for critical, 4 for severe, 2 for minor
   healed: boolean;
+  scarDescription?: string; // filled in when injury fully heals
   timestamp: number;
+}
+
+export interface Scar {
+  id: string;
+  description: string;
+  fromInjuryId?: string;
+  severity: InjurySeverity;
+  location: BodyLocation;
 }
 
 export interface ExhaustionLevel {
@@ -188,10 +218,12 @@ export interface Spell {
 export interface CalendarMonth {
   name: string;
   days: number;
+  season?: string; // which season this month belongs to
 }
 
 export interface CalendarConfig {
   months: CalendarMonth[];
+  seasons?: string[]; // e.g., ['Spring', 'Summer', 'Autumn', 'Winter']
   daysPerWeek: number;
   weekDayNames: string[];
   yearSuffix: string;
@@ -255,6 +287,8 @@ export interface PlayerData {
   conditions: ConditionName[];
   exhaustionLevel: number; // 0-10
   injuries: Injury[];
+  scars: Scar[];
+  favorites?: string[]; // favorite token IDs
   lastRestBonus?: RestBonus;
 
   // Character
@@ -291,6 +325,10 @@ export interface PlayerData {
   deathSaves: { successes: number; failures: number };
   hiddenNotes: string;
   exhaustionConfig: ExhaustionLevel[];
+
+  // Claim system
+  claimable?: boolean;
+  claimedBy?: string; // player ID
 
   // Meta
   version: number;
@@ -333,6 +371,8 @@ export interface MonsterData {
   notes: string;
   xpValue: number;
   challengeRating: string;
+  claimable?: boolean;
+  claimedBy?: string;
   version: number;
 }
 
@@ -357,6 +397,8 @@ export interface CompanionData {
   coins: Coins;
   carryCapacity: number;
   notes: string;
+  claimable?: boolean;
+  claimedBy?: string;
   version: number;
 }
 
@@ -375,6 +417,8 @@ export interface StorageData {
   lockDC?: number;
   accessList?: string[]; // player IDs with access
   notes: string;
+  claimable?: boolean;
+  claimedBy?: string;
   version: number;
 }
 
@@ -393,6 +437,8 @@ export interface LoreData {
   tags: string[];
   linkedTokenIds?: string[];
   notes: string; // GM only
+  claimable?: boolean;
+  claimedBy?: string;
   version: number;
 }
 
@@ -425,6 +471,8 @@ export interface NPCData {
   notes: string;
   revealed: boolean;
   revealedFields: string[]; // which fields players can see
+  claimable?: boolean;
+  claimedBy?: string;
   version: number;
 }
 
@@ -443,6 +491,8 @@ export interface MerchantData {
   inventory: Item[];
   coins: Coins;
   notes: string; // GM only
+  claimable?: boolean;
+  claimedBy?: string;
   version: number;
 }
 

@@ -44,7 +44,7 @@ export function SkillsTab({ player, onChange, canEdit }: SkillsTabProps) {
           const skillData = player.skills[name as keyof typeof player.skills];
           if (!skillData) return null;
           const attr = SKILL_ATTRIBUTE_MAP[name];
-          const mod = getSkillModifier(name, player.skills, player.attributes, player.proficiencyBonus);
+          const mod = getSkillModifier(name, player.skills, player.attributes, player.level);
 
           return (
             <React.Fragment key={name}>

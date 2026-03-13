@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AnyTokenData, PlayerData, MonsterData, CompanionData, StorageData, LoreData, NPCData, MerchantData, RoomMetadata } from '../types';
+import { AnyTokenData, PlayerData, MonsterData, CompanionData, StorageData, LoreData, NPCData, MerchantData, RoomMetadata, CalendarConfig, WeatherData } from '../types';
 import { PlayerToken } from './player';
 import { MonsterToken } from './monster';
 import { CompanionToken } from './companion';
@@ -93,12 +93,31 @@ function NoTokenData({ itemId, isGM, onUpdate }: { itemId: string; isGM: boolean
   );
 }
 
+function createDefaultForType(type: string, currentData: AnyTokenData): AnyTokenData {
+  switch (type) {
+    case 'player': return createDefaultPlayerData();
+    case 'monster': return createDefaultMonsterData();
+    case 'companion': return { tokenType: 'companion', name: (currentData as { name?: string }).name || 'Companion', ownerId: '', currentHp: 10, maxHp: 10, ac: 12, speed: 30, status: 'Alive', attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }, abilities: [], actions: [], conditions: [], inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, carryCapacity: 50, notes: '', version: 1 };
+    case 'storage': return { tokenType: 'storage', name: (currentData as { name?: string }).name || 'Container', storageType: 'SmallChest', capacity: 30, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, locked: false, notes: '', version: 1 };
+    case 'lore': return { tokenType: 'lore', name: (currentData as { name?: string }).name || 'Lore', category: 'Location', summary: '', fullText: '', revealed: false, tags: [], notes: '', version: 1 };
+    case 'npc': return { tokenType: 'npc', name: (currentData as { name?: string }).name || 'NPC', race: '', alignment: 'TN', occupation: '', location: '', personality: '', appearance: '', background: '', motivations: '', secrets: '', relationships: [], quests: [], notes: '', revealed: false, revealedFields: [], version: 1 };
+    case 'merchant': return { tokenType: 'merchant', name: (currentData as { name?: string }).name || 'Merchant', shopName: 'The Shop', description: '', costInflation: 1.0, buybackRate: 0.5, buybackLimit: 500, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, notes: '', version: 1 };
+    default: return currentData;
+  }
+}
+
 export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData, onRoomUpdate }: TokenSelectorProps) {
   const [showTrade, setShowTrade] = useState(false);
 
   if (!data) {
     return <NoTokenData itemId={itemId} isGM={isGM} onUpdate={onUpdate} />;
   }
+
+  const calendar = roomData?.calendar;
+  const weather = roomData?.weather;
+  const onCalendarChange = isGM && onRoomUpdate ? (cal: CalendarConfig) => onRoomUpdate({ ...roomData!, calendar: cal }) : undefined;
+  const onWeatherChange = isGM && onRoomUpdate ? (w: WeatherData) => onRoomUpdate({ ...roomData!, weather: w }) : undefined;
+  const onTokenTypeChange = isGM ? (type: string) => onUpdate(createDefaultForType(type, data)) : undefined;
 
   switch (data.tokenType) {
     case 'player': {
@@ -110,10 +129,12 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
           isOwner={isOwner || isGM}
-          calendar={roomData?.calendar}
-          weather={roomData?.weather}
-          onCalendarChange={isGM && onRoomUpdate ? (cal) => onRoomUpdate({ ...roomData!, calendar: cal }) : undefined}
+          calendar={calendar}
+          weather={weather}
+          onCalendarChange={onCalendarChange}
+          onWeatherChange={onWeatherChange}
           onTradeClick={() => setShowTrade(true)}
+          itemId={itemId}
         />
       );
     }
@@ -123,6 +144,9 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           monster={data as MonsterData}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
+          calendar={calendar}
+          onCalendarChange={onCalendarChange}
+          onTokenTypeChange={onTokenTypeChange}
         />
       );
     }
@@ -135,6 +159,9 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
           canEdit={isOwner || isGM}
+          calendar={calendar}
+          onCalendarChange={onCalendarChange}
+          onTokenTypeChange={onTokenTypeChange}
         />
       );
     }
@@ -145,6 +172,9 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
           canAccess={isGM}
+          calendar={calendar}
+          onCalendarChange={onCalendarChange}
+          onTokenTypeChange={onTokenTypeChange}
         />
       );
     }
@@ -154,6 +184,9 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           lore={data as LoreData}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
+          calendar={calendar}
+          onCalendarChange={onCalendarChange}
+          onTokenTypeChange={onTokenTypeChange}
         />
       );
     }
@@ -163,6 +196,9 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           npc={data as NPCData}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
+          calendar={calendar}
+          onCalendarChange={onCalendarChange}
+          onTokenTypeChange={onTokenTypeChange}
         />
       );
     }
@@ -172,10 +208,24 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           merchant={data as MerchantData}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
+          calendar={calendar}
+          onCalendarChange={onCalendarChange}
+          onTokenTypeChange={onTokenTypeChange}
         />
       );
     }
     default:
       return <div className="loading">Unknown token type.</div>;
   }
+}
+
+
+interface TokenSelectorProps {
+  itemId: string;
+  data: AnyTokenData | null;
+  onUpdate: (data: AnyTokenData) => void;
+  isGM: boolean;
+  playerId: string | null;
+  roomData: RoomMetadata | null;
+  onRoomUpdate?: (data: RoomMetadata) => void;
 }
