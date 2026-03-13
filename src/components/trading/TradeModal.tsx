@@ -92,6 +92,8 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
     setItems: React.Dispatch<React.SetStateAction<{ item: Item; qty: number }[]>>,
     items: { item: Item; qty: number }[]
   ) => {
+    setInitiatorConfirmed(false);
+    setTargetConfirmed(false);
     const existing = items.find((x) => x.item.id === item.id);
     if (existing) {
       setItems(items.map((x) => x.item.id === item.id ? { ...x, qty: Math.min(x.qty + 1, item.quantity) } : x));
@@ -105,20 +107,18 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
     setItems: React.Dispatch<React.SetStateAction<{ item: Item; qty: number }[]>>,
     items: { item: Item; qty: number }[]
   ) => {
+    setInitiatorConfirmed(false);
+    setTargetConfirmed(false);
     setItems(items.filter((x) => x.item.id !== itemId));
   };
 
-  // Reset confirmations when offers change
-  const handleInitiatorItemsChange = (setter: (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]) => {
+  const handleCoinsChange = (
+    coins: Coins,
+    setCoins: React.Dispatch<React.SetStateAction<Coins>>
+  ) => {
     setInitiatorConfirmed(false);
     setTargetConfirmed(false);
-    setInitiatorItems(setter);
-  };
-
-  const handleTargetItemsChange = (setter: (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]) => {
-    setInitiatorConfirmed(false);
-    setTargetConfirmed(false);
-    setTargetItems(setter);
+    setCoins(coins);
   };
 
   const handleConfirm = () => {
@@ -232,7 +232,7 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
         <div style={{ marginTop: 6 }}>
           <div className="field-label">Coins to offer:</div>
           {renderCoins(coins)}
-          <CoinDisplay coins={coins} onChange={(c) => { setInitiatorConfirmed(false); setTargetConfirmed(false); setCoins(c); }} />
+          <CoinDisplay coins={coins} onChange={(c) => handleCoinsChange(c, setCoins)} />
         </div>
       )}
       {!isMySide && coins && (
@@ -273,8 +273,7 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 12, alignItems: 'start' }}>
           {renderSide(
-            initiator, initiatorItems,
-            (s) => handleInitiatorItemsChange(s as (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]),
+            initiator, initiatorItems, setInitiatorItems,
             initiatorCoins, setInitiatorCoins,
             currentIsInitiator,
             initiatorConfirmed,
@@ -282,8 +281,7 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
           )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, paddingTop: 40 }}>⇌</div>
           {renderSide(
-            target, targetItems,
-            (s) => handleTargetItemsChange(s as (prev: { item: Item; qty: number }[]) => { item: Item; qty: number }[]),
+            target, targetItems, setTargetItems,
             targetCoins, setTargetCoins,
             !currentIsInitiator,
             targetConfirmed,

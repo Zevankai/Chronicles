@@ -22,6 +22,7 @@ import {
   HALF_CASTERS,
   PACT_CASTERS,
   THIRD_CASTERS,
+  ALL_CASTERS,
   PREPARED_CASTERS,
   SPELLCASTING_ABILITY,
   FULL_CASTER_SLOTS,
@@ -460,7 +461,7 @@ export function getSpellSlots(
     9: { total: 0, used: 0 },
   };
 
-  if (!(([...FULL_CASTERS, ...HALF_CASTERS, ...PACT_CASTERS, ...THIRD_CASTERS] as string[]).includes(lowerClass))) {
+  if (!((ALL_CASTERS as readonly string[]).includes(lowerClass))) {
     return empty;
   }
 
@@ -514,9 +515,7 @@ export function resetSpellSlotsOnLongRest(spellSlots: SpellSlots): SpellSlots {
  * Returns whether the given class is a spellcasting class.
  */
 export function isCasterClass(playerClass: string): boolean {
-  return ([...FULL_CASTERS, ...HALF_CASTERS, ...PACT_CASTERS, ...THIRD_CASTERS] as string[]).includes(
-    playerClass.toLowerCase()
-  );
+  return (ALL_CASTERS as readonly string[]).includes(playerClass.toLowerCase());
 }
 
 /**
