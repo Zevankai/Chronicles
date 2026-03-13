@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { MonsterData, ConditionName } from '../../types';
+import { MonsterData, ConditionName, CalendarConfig } from '../../types';
 import { StatBox } from '../common/StatBox';
 import { HPBar } from '../common/HPBar';
 import { ConditionGrid } from '../common/ConditionBadge';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { TabPanel } from '../common/TabPanel';
+import { GMTab } from '../player/GMTab';
 import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS } from '../../constants';
 import { generateId } from '../../utils';
 import { Item } from '../../types';
@@ -14,9 +15,12 @@ interface MonsterTokenProps {
   onUpdate: (updated: MonsterData) => void;
   isGM: boolean;
   onLootClick?: () => void;
+  calendar?: CalendarConfig;
+  onCalendarChange?: (cal: CalendarConfig) => void;
+  onTokenTypeChange?: (type: string) => void;
 }
 
-export function MonsterToken({ monster, onUpdate, isGM, onLootClick }: MonsterTokenProps) {
+export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, onCalendarChange, onTokenTypeChange }: MonsterTokenProps) {
   const [showAddAbility, setShowAddAbility] = useState(false);
   const [showAddAction, setShowAddAction] = useState(false);
   const [newAbilityName, setNewAbilityName] = useState('');
@@ -37,7 +41,7 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick }: MonsterTo
     { id: 'stats', label: '⚔️ Stats' },
     { id: 'abilities', label: '📖 Abilities' },
     { id: 'conditions', label: '💔 Conditions' },
-    ...(isGM ? [{ id: 'loot', label: '💰 Loot' }, { id: 'notes', label: '📝 Notes' }] : [
+    ...(isGM ? [{ id: 'loot', label: '💰 Loot' }, { id: 'notes', label: '📝 Notes' }, { id: 'gm', label: '🔒 GM' }] : [
       ...(monster.status === 'Dead' ? [{ id: 'loot', label: '💰 Loot' }] : [])
     ]),
   ];
@@ -268,10 +272,24 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick }: MonsterTo
     </div>
   );
 
+  const gmPanel = (
+    <GMTab
+      tokenType={monster.tokenType}
+      claimable={monster.claimable}
+      claimedBy={monster.claimedBy}
+      onTokenTypeChange={(t) => onTokenTypeChange?.(t)}
+      onClaimableChange={(v) => onUpdate({ ...monster, claimable: v })}
+      calendar={calendar}
+      onCalendarChange={onCalendarChange}
+      isGM={isGM}
+    />
+  );
+
   const panels = [statsPanel, abilitiesPanel, conditionsPanel];
   if (isGM) {
     panels.push(lootPanel);
     panels.push(notesPanel);
+    panels.push(gmPanel);
   } else if (monster.status === 'Dead') {
     panels.push(lootPanel);
   }

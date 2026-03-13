@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { PlayerData, ConditionName } from '../../types';
+import React from 'react';
+import { PlayerData } from '../../types';
 import { StatBox } from '../common/StatBox';
-import { HPBar } from '../common/HPBar';
 import { ConditionGrid } from '../common/ConditionBadge';
-import { getModifier, getModifierString, getEncumbranceStatus, getInventoryWeight } from '../../utils';
+import { getEncumbranceStatus, getInventoryWeight } from '../../utils';
 import { ATTRIBUTES } from '../../constants';
 
 interface HomeTabProps {
@@ -13,9 +12,11 @@ interface HomeTabProps {
   isGM: boolean;
   weather?: string;
   onTradeClick?: () => void;
+  favoriteTokenIds?: string[]; // IDs of tokens to show as favorites
+  currentTokenId?: string; // ID of this token
 }
 
-export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick }: HomeTabProps) {
+export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, favoriteTokenIds, currentTokenId }: HomeTabProps) {
   const canEdit = isOwner || isGM;
   const enc = getEncumbranceStatus(player);
   const totalWeight = getInventoryWeight(player.inventory);
@@ -29,62 +30,23 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
   const updateSave = (attr: string, val: number) =>
     onChange({ ...player, savingThrows: { ...player.savingThrows, [attr]: val } });
 
+  const hasActiveConditions =
+    player.conditions.length > 0 ||
+    player.exhaustionLevel > 0 ||
+    player.injuries.some((i) => !i.healed);
+
+  // Favorites: track whether this token is favorited
+  const isFavorited = currentTokenId && (player.favorites || []).includes(currentTokenId);
+  const toggleFavorite = () => {
+    if (!currentTokenId) return;
+    const favs = player.favorites || [];
+    update('favorites', favs.includes(currentTokenId)
+      ? favs.filter((f) => f !== currentTokenId)
+      : [...favs, currentTokenId]);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* Identity */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        <div>
-          <label className="field-label">Name</label>
-          <input type="text" value={player.name}
-            onChange={(e) => update('name', e.target.value)}
-            disabled={!canEdit} />
-        </div>
-        <div>
-          <label className="field-label">Class</label>
-          <input type="text" value={player.playerClass}
-            onChange={(e) => update('playerClass', e.target.value)}
-            disabled={!canEdit} />
-        </div>
-        <div>
-          <label className="field-label">Race</label>
-          <input type="text" value={player.race}
-            onChange={(e) => update('race', e.target.value)}
-            disabled={!canEdit} />
-        </div>
-        <div>
-          <label className="field-label">Level</label>
-          <input type="number" value={player.level} min={1} max={20}
-            onChange={(e) => update('level', parseInt(e.target.value) || 1)}
-            disabled={!canEdit} />
-        </div>
-      </div>
-
-      {/* HP Section */}
-      <div>
-        <div className="section-header">Hit Points</div>
-        <HPBar current={player.currentHp} max={player.maxHp} temp={player.tempHp} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 6 }}>
-          <div>
-            <label className="field-label">Current HP</label>
-            <input type="number" value={player.currentHp}
-              onChange={(e) => update('currentHp', parseInt(e.target.value) || 0)}
-              disabled={!canEdit} />
-          </div>
-          <div>
-            <label className="field-label">Max HP</label>
-            <input type="number" value={player.maxHp} min={1}
-              onChange={(e) => update('maxHp', parseInt(e.target.value) || 1)}
-              disabled={!canEdit} />
-          </div>
-          <div>
-            <label className="field-label">Temp HP</label>
-            <input type="number" value={player.tempHp} min={0}
-              onChange={(e) => update('tempHp', parseInt(e.target.value) || 0)}
-              disabled={!canEdit} />
-          </div>
-        </div>
-      </div>
-
       {/* Combat Stats */}
       <div>
         <div className="section-header">Combat</div>
@@ -95,12 +57,12 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
             onChange={(v) => update('initiativeBonus', v)} min={-10} max={20} />
           <StatBox label="Speed" value={player.speed} editable={canEdit}
             onChange={(v) => update('speed', v)} min={0} max={120} />
-          <StatBox label="Prof Bonus" value={player.proficiencyBonus} editable={canEdit}
-            onChange={(v) => update('proficiencyBonus', v)} min={2} max={6} />
           <StatBox label="Passive Perc" value={player.passivePerception} editable={canEdit}
             onChange={(v) => update('passivePerception', v)} min={1} max={30} />
           <StatBox label="Passive Inv" value={player.passiveInvestigation} editable={canEdit}
             onChange={(v) => update('passiveInvestigation', v)} min={1} max={30} />
+          <StatBox label="Passive Ins" value={player.passiveInsight} editable={canEdit}
+            onChange={(v) => update('passiveInsight', v)} min={1} max={30} />
         </div>
       </div>
 
@@ -141,38 +103,70 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
         </div>
       </div>
 
-      {/* Encumbrance */}
+      {/* Encumbrance warnings */}
       {enc !== 'normal' && (
         <div className={`badge badge-${enc === 'over' ? 'danger' : 'warning'}`}
-          style={{ padding: '4px 8px' }}>
-          {enc === 'over' ? '⚠ Over Encumbered' : '⚡ Combat Encumbered'}
+          style={{ padding: '4px 8px', display: 'block' }}>
+          {enc === 'over'
+            ? '⚠ Over Encumbered — Disadvantage on attack rolls, initiative, STR & DEX rolls, half speed'
+            : '⚡ Combat Encumbered — Disadvantage on attack rolls and initiative'}
           {' '}({totalWeight.toFixed(1)} units)
         </div>
       )}
 
+      {/* Active Conditions (only if any are active) */}
+      {hasActiveConditions && (
+        <div>
+          <div className="section-header">Active Conditions</div>
+          {player.conditions.length > 0 && (
+            <ConditionGrid
+              active={player.conditions}
+              onChange={(c) => update('conditions', c)}
+              readonly={!canEdit}
+            />
+          )}
+          {player.exhaustionLevel > 0 && (
+            <div className="badge badge-warning" style={{ marginTop: 4, padding: '3px 6px', display: 'inline-block' }}>
+              Exhaustion {player.exhaustionLevel}
+            </div>
+          )}
+          {player.injuries.filter((i) => !i.healed).map((inj) => (
+            <div key={inj.id} className={`injury-card ${inj.severity}`} style={{ marginTop: 4 }}>
+              <strong>{inj.severity.toUpperCase()}</strong> — {inj.location}: {inj.description}
+              {inj.maxHp && (
+                <span style={{ float: 'right', fontSize: 10, color: 'var(--color-text-muted)' }}>
+                  {inj.currentHp ?? inj.maxHp}/{inj.maxHp} HP
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Weather & Trade */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
         {weather && (
           <div className="weather-display">
             <span>🌤</span>
             <span>{weather}</span>
           </div>
         )}
-        {(isOwner || isGM) && onTradeClick && (
-          <button className="btn btn-secondary btn-sm" onClick={onTradeClick}>
-            💱 Trade
-          </button>
-        )}
-      </div>
-
-      {/* Conditions Strip */}
-      <div>
-        <div className="section-header">Conditions</div>
-        <ConditionGrid
-          active={player.conditions}
-          onChange={(c) => update('conditions', c)}
-          readonly={!canEdit}
-        />
+        <div style={{ display: 'flex', gap: 4 }}>
+          {canEdit && currentTokenId && (
+            <button
+              className={`btn btn-sm ${isFavorited ? 'btn-warning' : 'btn-secondary'}`}
+              onClick={toggleFavorite}
+              title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              {isFavorited ? '⭐ Favorited' : '☆ Favorite'}
+            </button>
+          )}
+          {(isOwner || isGM) && onTradeClick && (
+            <button className="btn btn-secondary btn-sm" onClick={onTradeClick}>
+              💱 Trade
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

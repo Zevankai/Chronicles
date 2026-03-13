@@ -96,8 +96,97 @@ function AddSpellForm({ onAdd }: { onAdd: (spell: Spell) => void }) {
   );
 }
 
+function SpellEditor({
+  spell,
+  onChange,
+  onClose,
+}: {
+  spell: Spell;
+  onChange: (updated: Spell) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState({ ...spell });
+
+  const update = <K extends keyof Spell>(key: K, value: Spell[K]) =>
+    setDraft((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Edit Spell</span>
+          <button className="btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <div>
+              <label className="field-label">Name</label>
+              <input type="text" value={draft.name} onChange={(e) => update('name', e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Level</label>
+              <select value={draft.level} onChange={(e) => update('level', parseInt(e.target.value))}>
+                <option value={0}>Cantrip</option>
+                {[1,2,3,4,5,6,7,8,9].map((l) => <option key={l} value={l}>Level {l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">School</label>
+              <input type="text" value={draft.school} onChange={(e) => update('school', e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Casting Time</label>
+              <input type="text" value={draft.castingTime} onChange={(e) => update('castingTime', e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Range</label>
+              <input type="text" value={draft.range} onChange={(e) => update('range', e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Components</label>
+              <input type="text" value={draft.components} onChange={(e) => update('components', e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Duration</label>
+              <input type="text" value={draft.duration} onChange={(e) => update('duration', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
+              <input type="checkbox" checked={draft.prepared} onChange={(e) => update('prepared', e.target.checked)} />
+              Prepared
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
+              <input type="checkbox" checked={draft.ritual} onChange={(e) => update('ritual', e.target.checked)} />
+              Ritual
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 12 }}>
+              <input type="checkbox" checked={draft.concentration} onChange={(e) => update('concentration', e.target.checked)} />
+              Concentration
+            </label>
+          </div>
+          <div>
+            <label className="field-label">Description</label>
+            <textarea
+              value={draft.description}
+              onChange={(e) => update('description', e.target.value)}
+              rows={4}
+              placeholder="Spell description..."
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => { onChange(draft); onClose(); }}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null);
+  const [editingSpell, setEditingSpell] = useState<Spell | null>(null);
 
   const updateSlot = (level: number, used: number) => {
     onChange({
@@ -125,6 +214,13 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
 
   const removeSpell = (id: string) => {
     onChange({ ...player, spells: player.spells.filter((s) => s.id !== id) });
+  };
+
+  const updateSpell = (updated: Spell) => {
+    onChange({
+      ...player,
+      spells: player.spells.map((s) => s.id === updated.id ? updated : s),
+    });
   };
 
   const togglePrepared = (id: string) => {
@@ -191,19 +287,25 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
                     {spell.ritual && <span className="badge badge-info" style={{ fontSize: 9 }}>R</span>}
                     {spell.concentration && <span className="badge badge-warning" style={{ fontSize: 9 }}>C</span>}
                   </div>
-                  {canEdit && (
-                    <button className="btn-icon" onClick={() => removeSpell(spell.id)}>🗑</button>
-                  )}
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {canEdit && (
+                      <button className="btn-icon" onClick={() => setEditingSpell(spell)} title="Edit">✏️</button>
+                    )}
+                    {canEdit && (
+                      <button className="btn-icon" onClick={() => removeSpell(spell.id)}>🗑</button>
+                    )}
+                  </div>
                 </div>
 
                 {expandedSpell === spell.id && (
                   <div style={{ marginTop: 6, fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    {spell.school && <div><strong>School:</strong> {spell.school}</div>}
                     <div><strong>Casting Time:</strong> {spell.castingTime}</div>
                     <div><strong>Range:</strong> {spell.range}</div>
                     <div><strong>Components:</strong> {spell.components}</div>
                     <div><strong>Duration:</strong> {spell.duration}</div>
                     {spell.description && (
-                      <div style={{ marginTop: 4, color: 'var(--color-text)' }}>{spell.description}</div>
+                      <div style={{ marginTop: 4, color: 'var(--color-text)', whiteSpace: 'pre-wrap' }}>{spell.description}</div>
                     )}
                   </div>
                 )}
@@ -214,6 +316,21 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
       })}
 
       {canEdit && <AddSpellForm onAdd={addSpell} />}
+
+      {editingSpell && (
+        <SpellEditor
+          spell={editingSpell}
+          onChange={updateSpell}
+          onClose={() => setEditingSpell(null)}
+        />
+      )}
     </div>
   );
+}
+
+
+interface SpellsTabProps {
+  player: PlayerData;
+  onChange: (updated: PlayerData) => void;
+  canEdit: boolean;
 }

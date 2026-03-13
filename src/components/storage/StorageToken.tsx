@@ -1,7 +1,8 @@
 import React from 'react';
-import { StorageData, StorageType } from '../../types';
+import { StorageData, StorageType, CalendarConfig } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { GMTab } from '../player/GMTab';
 import { STORAGE_CAPACITIES, ITEM_CATEGORY_WEIGHTS } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
 
@@ -10,9 +11,12 @@ interface StorageTokenProps {
   onUpdate: (updated: StorageData) => void;
   isGM: boolean;
   canAccess: boolean;
+  calendar?: CalendarConfig;
+  onCalendarChange?: (cal: CalendarConfig) => void;
+  onTokenTypeChange?: (type: string) => void;
 }
 
-export function StorageToken({ storage, onUpdate, isGM, canAccess }: StorageTokenProps) {
+export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onCalendarChange, onTokenTypeChange }: StorageTokenProps) {
   const update = <K extends keyof StorageData>(key: K, value: StorageData[K]) =>
     onUpdate({ ...storage, [key]: value });
 
@@ -21,7 +25,7 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess }: StorageToke
 
   const tabs = [
     { id: 'inventory', label: '🎒 Inventory' },
-    ...(isGM ? [{ id: 'config', label: '⚙️ Config' }] : []),
+    ...(isGM ? [{ id: 'config', label: '⚙️ Config' }, { id: 'gm', label: '🔒 GM' }] : []),
   ];
 
   const inventoryPanel = (
@@ -141,8 +145,21 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess }: StorageToke
     Wagon: '🚌', Vault: '🏛️', Strongbox: '💰', Saddlebags: '🎒', Custom: '📦',
   };
 
+  const gmPanel = (
+    <GMTab
+      tokenType={storage.tokenType}
+      claimable={storage.claimable}
+      claimedBy={storage.claimedBy}
+      onTokenTypeChange={(t) => onTokenTypeChange?.(t)}
+      onClaimableChange={(v) => onUpdate({ ...storage, claimable: v })}
+      calendar={calendar}
+      onCalendarChange={onCalendarChange}
+      isGM={isGM}
+    />
+  );
+
   const panels = [inventoryPanel];
-  if (isGM) panels.push(configPanel);
+  if (isGM) { panels.push(configPanel); panels.push(gmPanel); }
 
   return (
     <div>

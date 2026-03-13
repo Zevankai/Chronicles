@@ -132,6 +132,18 @@ body {
   flex-shrink: 0;
 }
 
+.tab-list-two-rows {
+  display: flex;
+  flex-direction: column;
+  overflow-x: visible;
+}
+
+.tab-row {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
 .tab-button {
   padding: 5px 8px;
   background: transparent;

@@ -1,10 +1,11 @@
 import React from 'react';
-import { CompanionData } from '../../types';
+import { CompanionData, CalendarConfig } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { StatBox } from '../common/StatBox';
 import { HPBar } from '../common/HPBar';
 import { ConditionGrid } from '../common/ConditionBadge';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { GMTab } from '../player/GMTab';
 import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
 
@@ -13,9 +14,12 @@ interface CompanionTokenProps {
   onUpdate: (updated: CompanionData) => void;
   isGM: boolean;
   canEdit: boolean;
+  calendar?: CalendarConfig;
+  onCalendarChange?: (cal: CalendarConfig) => void;
+  onTokenTypeChange?: (type: string) => void;
 }
 
-export function CompanionToken({ companion, onUpdate, isGM, canEdit }: CompanionTokenProps) {
+export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, onCalendarChange, onTokenTypeChange }: CompanionTokenProps) {
   const update = <K extends keyof CompanionData>(key: K, value: CompanionData[K]) =>
     onUpdate({ ...companion, [key]: value });
 
@@ -28,7 +32,7 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit }: Companion
     { id: 'stats', label: '⚔️ Stats' },
     { id: 'inventory', label: '🎒 Inventory' },
     { id: 'conditions', label: '💔 Conditions' },
-    ...(isGM ? [{ id: 'notes', label: '📝 Notes' }] : []),
+    ...(isGM ? [{ id: 'notes', label: '📝 Notes' }, { id: 'gm', label: '🔒 GM' }] : []),
   ];
 
   const statsPanel = (
@@ -159,8 +163,21 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit }: Companion
     </div>
   );
 
+  const gmPanel = (
+    <GMTab
+      tokenType={companion.tokenType}
+      claimable={companion.claimable}
+      claimedBy={companion.claimedBy}
+      onTokenTypeChange={(t) => onTokenTypeChange?.(t)}
+      onClaimableChange={(v) => onUpdate({ ...companion, claimable: v })}
+      calendar={calendar}
+      onCalendarChange={onCalendarChange}
+      isGM={isGM}
+    />
+  );
+
   const panels = [statsPanel, inventoryPanel, conditionsPanel];
-  if (isGM) panels.push(notesPanel);
+  if (isGM) { panels.push(notesPanel); panels.push(gmPanel); }
 
   return (
     <div>
