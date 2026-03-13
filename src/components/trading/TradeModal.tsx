@@ -20,11 +20,68 @@ interface TradeModalProps {
   onClose: () => void;
 }
 
+const COIN_STYLES: Record<keyof Coins, { color: string; label: string }> = {
+  cp: { color: '#b87333', label: 'CP' },
+  sp: { color: '#a8a9ad', label: 'SP' },
+  gp: { color: '#ffd700', label: 'GP' },
+  pp: { color: '#e5e4e2', label: 'PP' },
+};
+
+function ItemDetailModal({ item, onClose }: { item: Item; onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 320 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">🔍 {item.name}</span>
+          <button className="btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+            {item.category} · {item.weight ?? 1}u · ×{item.quantity}
+          </div>
+          {item.description && (
+            <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{item.description}</div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 11 }}>
+            {item.damage && <div><strong>Damage:</strong> {item.damage}</div>}
+            {item.hitModifier !== undefined && <div><strong>Hit Mod:</strong> {item.hitModifier >= 0 ? '+' : ''}{item.hitModifier}</div>}
+            {item.damageModifier !== undefined && <div><strong>Dmg Mod:</strong> {item.damageModifier >= 0 ? '+' : ''}{item.damageModifier}</div>}
+            {item.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{item.acBonus}</div>}
+            {item.maxCharges !== undefined && <div><strong>Charges:</strong> {item.currentCharges ?? 0}/{item.maxCharges}</div>}
+            {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+          </div>
+          {item.price && (
+            <div style={{ fontSize: 11 }}>
+              <strong>Price: </strong>
+              {(['pp', 'gp', 'sp', 'cp'] as (keyof Coins)[])
+                .filter((d) => item.price![d] > 0)
+                .map((d) => (
+                  <span key={d} style={{ color: COIN_STYLES[d].color, marginRight: 6, fontWeight: 'bold' }}>
+                    {item.price![d]} {COIN_STYLES[d].label}
+                  </span>
+                ))}
+            </div>
+          )}
+          {item.properties && (
+            <div style={{ fontSize: 11 }}><strong>Properties:</strong> {item.properties}</div>
+          )}
+          {item.requiresAttunement && (
+            <div style={{ fontSize: 11 }}>
+              <strong>Attunement:</strong> {item.attuned ? '✦ Attuned' : '◇ Required'}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModalProps) {
   const [initiatorItems, setInitiatorItems] = useState<{ item: Item; qty: number }[]>([]);
   const [targetItems, setTargetItems] = useState<{ item: Item; qty: number }[]>([]);
   const [initiatorCoins, setInitiatorCoins] = useState<Coins>({ cp: 0, sp: 0, gp: 0, pp: 0 });
   const [targetCoins, setTargetCoins] = useState<Coins>({ cp: 0, sp: 0, gp: 0, pp: 0 });
+  const [inspectItem, setInspectItem] = useState<Item | null>(null);
 
   const addItem = (
     item: Item,
@@ -54,6 +111,26 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
     );
   };
 
+  const renderCoins = (coins: Coins) => (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+      {(['pp', 'gp', 'sp', 'cp'] as (keyof Coins)[]).map((denom) => (
+        <div key={denom} style={{ textAlign: 'center' }}>
+          <div style={{
+            fontSize: 15,
+            fontWeight: 'bold',
+            color: COIN_STYLES[denom].color,
+            textShadow: '0 0 4px rgba(0,0,0,0.5)',
+          }}>
+            {coins[denom]}
+          </div>
+          <div style={{ fontSize: 9, color: 'var(--color-text-muted)', letterSpacing: 1 }}>
+            {COIN_STYLES[denom].label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   const renderSide = (
     participant: TradeParticipant,
     items: { item: Item; qty: number }[],
@@ -76,17 +153,29 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
             style={{
               display: 'flex',
               justifyContent: 'space-between',
+              alignItems: 'center',
               padding: '2px 4px',
-              cursor: 'pointer',
               borderRadius: 3,
               fontSize: 12,
               background: 'var(--color-bg)',
               marginBottom: 2,
             }}
-            onClick={() => addItem(item, setItems, items)}
           >
-            <span>{item.name}</span>
-            <span className="text-muted">×{item.quantity}</span>
+            <span
+              style={{ cursor: 'pointer', flex: 1 }}
+              onClick={() => addItem(item, setItems, items)}
+            >
+              {item.name}
+            </span>
+            <span className="text-muted" style={{ marginRight: 4 }}>×{item.quantity}</span>
+            <button
+              className="btn-icon"
+              title="Inspect item"
+              style={{ fontSize: 11 }}
+              onClick={(e) => { e.stopPropagation(); setInspectItem(item); }}
+            >
+              🔍
+            </button>
           </div>
         ))}
         {participant.inventory.length === 0 && (
@@ -102,13 +191,17 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
         items.map((x) => (
           <div key={x.item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
             <span>{x.item.name} ×{x.qty}</span>
-            <button className="btn-icon" onClick={() => removeItem(x.item.id, setItems, items)}>✕</button>
+            <div style={{ display: 'flex', gap: 2 }}>
+              <button className="btn-icon" style={{ fontSize: 11 }} onClick={() => setInspectItem(x.item)}>🔍</button>
+              <button className="btn-icon" onClick={() => removeItem(x.item.id, setItems, items)}>✕</button>
+            </div>
           </div>
         ))
       )}
 
       <div style={{ marginTop: 6 }}>
         <div className="field-label">Coins to offer:</div>
+        {renderCoins(coins)}
         <CoinDisplay coins={coins} onChange={setCoins} />
       </div>
     </div>
@@ -133,6 +226,11 @@ export function TradeModal({ initiator, target, onConfirm, onClose }: TradeModal
           <button className="btn btn-primary" onClick={handleConfirm}>Confirm Trade</button>
         </div>
       </div>
+
+      {/* Item inspector modal */}
+      {inspectItem && (
+        <ItemDetailModal item={inspectItem} onClose={() => setInspectItem(null)} />
+      )}
     </div>
   );
 }

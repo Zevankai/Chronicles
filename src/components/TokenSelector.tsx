@@ -77,7 +77,7 @@ function NoTokenData({ itemId, isGM, onUpdate }: { itemId: string; isGM: boolean
                   defaultData = { tokenType: 'npc', name: 'NPC', race: '', alignment: 'TN', occupation: '', location: '', personality: '', appearance: '', background: '', motivations: '', secrets: '', relationships: [], quests: [], notes: '', revealed: false, revealedFields: [], version: 1 };
                   break;
                 case 'merchant':
-                  defaultData = { tokenType: 'merchant', name: 'Merchant', shopName: 'The Shop', description: '', costInflation: 1.0, buybackRate: 0.5, buybackLimit: 500, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, notes: '', version: 1 };
+                  defaultData = { tokenType: 'merchant', name: 'Merchant', shopName: 'The Shop', description: '', costInflation: 1.0, buybackRate: 0.5, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, notes: '', version: 1 };
                   break;
                 default:
                   return;
@@ -102,7 +102,7 @@ function createDefaultForType(type: string, currentData: AnyTokenData): AnyToken
     case 'storage': return { tokenType: 'storage', name: (currentData as { name?: string }).name || 'Container', storageType: 'SmallChest', capacity: 30, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, locked: false, notes: '', version: 1 };
     case 'lore': return { tokenType: 'lore', name: (currentData as { name?: string }).name || 'Lore', category: 'Location', summary: '', fullText: '', revealed: false, tags: [], notes: '', version: 1 };
     case 'npc': return { tokenType: 'npc', name: (currentData as { name?: string }).name || 'NPC', race: '', alignment: 'TN', occupation: '', location: '', personality: '', appearance: '', background: '', motivations: '', secrets: '', relationships: [], quests: [], notes: '', revealed: false, revealedFields: [], version: 1 };
-    case 'merchant': return { tokenType: 'merchant', name: (currentData as { name?: string }).name || 'Merchant', shopName: 'The Shop', description: '', costInflation: 1.0, buybackRate: 0.5, buybackLimit: 500, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, notes: '', version: 1 };
+    case 'merchant': return { tokenType: 'merchant', name: (currentData as { name?: string }).name || 'Merchant', shopName: 'The Shop', description: '', costInflation: 1.0, buybackRate: 0.5, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, notes: '', version: 1 };
     default: return currentData;
   }
 }

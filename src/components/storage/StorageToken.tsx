@@ -109,6 +109,7 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState<ItemCategory>('Other');
+  const [extendedView, setExtendedView] = useState(false);
 
   const update = <K extends keyof StorageData>(key: K, value: StorageData[K]) =>
     onUpdate({ ...storage, [key]: value });
@@ -280,8 +281,8 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
           <select value={storage.storageType}
             onChange={(e) => {
               const t = e.target.value as StorageType;
-              update('storageType', t);
-              if (t !== 'Custom') update('capacity', STORAGE_CAPACITIES[t]);
+              const newCapacity = t !== 'Custom' ? STORAGE_CAPACITIES[t] : storage.capacity;
+              onUpdate({ ...storage, storageType: t, capacity: newCapacity });
             }}>
             {Object.keys(STORAGE_CAPACITIES).map((t) => (
               <option key={t} value={t}>{t} ({STORAGE_CAPACITIES[t as StorageType]}u)</option>
@@ -340,14 +341,26 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
         <div className="token-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
           {storageTypeIcons[storage.storageType]}
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="token-name">{storage.name}</div>
           <div className="token-subtitle">
             {storage.storageType} · {totalWeight.toFixed(1)}/{storage.capacity}u
           </div>
           {storage.locked && <div className="token-subtitle">🔒 Locked</div>}
         </div>
+        <button className="btn-icon" title="Extended View" onClick={() => setExtendedView(true)} style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start' }}>⛶</button>
       </div>
+      {extendedView && (
+        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
+          <div className="modal" style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">{storageTypeIcons[storage.storageType]} {storage.name} — Extended View</span>
+              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
+            </div>
+            <TabPanel tabs={tabs} defaultTab="inventory">{panels}</TabPanel>
+          </div>
+        </div>
+      )}
       <TabPanel tabs={tabs} defaultTab="inventory">{panels}</TabPanel>
     </div>
   );

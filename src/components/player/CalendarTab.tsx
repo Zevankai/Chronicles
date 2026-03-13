@@ -143,7 +143,7 @@ export function CalendarTab({ calendar, weather, onCalendarChange, onWeatherChan
                 </div>
                 <div>
                   <span className="field-label">Temperature</span>
-                  <div style={{ fontSize: 14, fontWeight: 'bold' }}>{weather.temperature}°C</div>
+                  <div style={{ fontSize: 14, fontWeight: 'bold' }}>{weather.temperature}°F</div>
                 </div>
                 <div>
                   <span className="field-label">Wind Speed</span>
@@ -253,7 +253,7 @@ export function CalendarTab({ calendar, weather, onCalendarChange, onWeatherChan
                   onChange={(e) => setWeatherDraft({ ...weatherDraft, type: e.target.value as WeatherData['type'] })} />
               </div>
               <div>
-                <label className="field-label">Temperature (°C)</label>
+                <label className="field-label">Temperature (°F)</label>
                 <input type="number" value={weatherDraft.temperature}
                   onChange={(e) => setWeatherDraft({ ...weatherDraft, temperature: parseInt(e.target.value) || 0 })} />
               </div>

@@ -113,6 +113,7 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
   const [expandedLootId, setExpandedLootId] = useState<string | null>(null);
   const [newLootName, setNewLootName] = useState('');
   const [newLootCategory, setNewLootCategory] = useState<ItemCategory>('Other');
+  const [extendedView, setExtendedView] = useState(false);
 
   const update = <K extends keyof MonsterData>(key: K, value: MonsterData[K]) =>
     onUpdate({ ...monster, [key]: value });
@@ -472,7 +473,7 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
         <div className="token-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
           👹
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="token-name">{monster.name}</div>
           <div className="token-subtitle">
             CR {monster.challengeRating} · {monster.currentHp}/{monster.maxHp} HP · AC {monster.ac}
@@ -481,7 +482,19 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
             ● {monster.status}
           </div>
         </div>
+        <button className="btn-icon" title="Extended View" onClick={() => setExtendedView(true)} style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start' }}>⛶</button>
       </div>
+      {extendedView && (
+        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
+          <div className="modal" style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">👹 {monster.name} — Extended View</span>
+              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
+            </div>
+            <TabPanel tabs={tabs} defaultTab="stats">{panels}</TabPanel>
+          </div>
+        </div>
+      )}
       <TabPanel tabs={tabs} defaultTab="stats">
         {panels}
       </TabPanel>

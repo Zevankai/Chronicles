@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CompanionData, CalendarConfig } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { StatBox } from '../common/StatBox';
@@ -21,6 +21,7 @@ interface CompanionTokenProps {
 }
 
 export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, onCalendarChange, onTokenTypeChange, playerId }: CompanionTokenProps) {
+  const [extendedView, setExtendedView] = useState(false);
   const update = <K extends keyof CompanionData>(key: K, value: CompanionData[K]) =>
     onUpdate({ ...companion, [key]: value });
 
@@ -202,12 +203,24 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
     <div>
       <div className="token-header">
         <div className="token-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🐾</div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="token-name">{companion.name}</div>
           <div className="token-subtitle">{companion.currentHp}/{companion.maxHp} HP · AC {companion.ac}</div>
           <div className="token-subtitle">Companion</div>
         </div>
+        <button className="btn-icon" title="Extended View" onClick={() => setExtendedView(true)} style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start' }}>⛶</button>
       </div>
+      {extendedView && (
+        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
+          <div className="modal" style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🐾 {companion.name} — Extended View</span>
+              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
+            </div>
+            <TabPanel tabs={tabs} defaultTab="stats">{panels}</TabPanel>
+          </div>
+        </div>
+      )}
       <TabPanel tabs={tabs} defaultTab="stats">{panels}</TabPanel>
     </div>
   );

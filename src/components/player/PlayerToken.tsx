@@ -40,6 +40,7 @@ export function PlayerToken({
 }: PlayerTokenProps) {
   const canEdit = isOwner || isGM;
   const [editingBanner, setEditingBanner] = useState(false);
+  const [extendedView, setExtendedView] = useState(false);
 
   const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>
     onUpdate({ ...player, [key]: value });
@@ -138,7 +139,41 @@ export function PlayerToken({
             </div>
           )}
         </div>
+        <button
+          className="btn-icon"
+          title="Extended View"
+          onClick={() => setExtendedView(true)}
+          style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start', marginLeft: 4 }}
+        >
+          ⛶
+        </button>
       </div>
+
+      {/* Extended View Modal */}
+      {extendedView && (
+        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
+          <div
+            className="modal"
+            style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <span className="modal-title">👤 {player.name} — Extended View</span>
+              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
+            </div>
+            <TabPanel tabs={tabs} defaultTab="home" twoRows>
+              <HomeTab player={player} onChange={onUpdate} isOwner={isOwner} isGM={isGM} weather={weather?.description} onTradeClick={onTradeClick} currentTokenId={itemId} playerId={playerId} />
+              <SkillsTab player={player} onChange={onUpdate} canEdit={canEdit} />
+              <ConditionsTab player={player} onChange={onUpdate} canEdit={canEdit} isGM={isGM} />
+              <CharacterTab player={player} onChange={onUpdate} canEdit={canEdit} />
+              <EquipmentTab player={player} onChange={onUpdate} canEdit={canEdit} />
+              <SpellsTab player={player} onChange={onUpdate} canEdit={canEdit} />
+              <CalendarTab calendar={cal} weather={weather} onCalendarChange={onCalendarChange} onWeatherChange={onWeatherChange} isGM={isGM} />
+              <GMTab tokenType={player.tokenType} claimable={player.claimable} claimedBy={player.claimedBy} onTokenTypeChange={(tt) => onUpdate({ ...player, tokenType: tt as PlayerData['tokenType'] })} onClaimableChange={(v) => onUpdate({ ...player, claimable: v })} calendar={cal} onCalendarChange={onCalendarChange} isGM={isGM} tokenData={player} />
+            </TabPanel>
+          </div>
+        </div>
+      )}
 
       {/* HP Bar in header area */}
       <div style={{ padding: '4px 8px', background: 'var(--color-primary)' }}>
@@ -184,6 +219,7 @@ export function PlayerToken({
           calendar={cal}
           onCalendarChange={onCalendarChange}
           isGM={isGM}
+          tokenData={player}
           extraContent={
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* XP & Inspiration */}

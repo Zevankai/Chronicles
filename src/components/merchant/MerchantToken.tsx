@@ -150,6 +150,7 @@ export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem,
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState<ItemCategory>('Other');
+  const [extendedView, setExtendedView] = useState(false);
 
   const update = <K extends keyof MerchantData>(key: K, value: MerchantData[K]) =>
     onUpdate({ ...merchant, [key]: value });
@@ -320,11 +321,6 @@ export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem,
           <input type="number" value={merchant.buybackRate} min={0.1} max={1} step={0.05}
             onChange={(e) => update('buybackRate', parseFloat(e.target.value) || 0.5)} />
         </div>
-        <div>
-          <label className="field-label">Buyback Limit (GP)</label>
-          <input type="number" value={merchant.buybackLimit} min={0}
-            onChange={(e) => update('buybackLimit', parseInt(e.target.value) || 0)} />
-        </div>
       </div>
       <div>
         <label className="field-label">Description</label>
@@ -366,14 +362,26 @@ export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem,
     <div>
       <div className="token-header">
         <div className="token-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🏪</div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="token-name">{merchant.name}</div>
           <div className="token-subtitle">{merchant.shopName}</div>
           <div className="token-subtitle">
             {merchant.inventory.length} item(s) · ×{merchant.costInflation} cost
           </div>
         </div>
+        <button className="btn-icon" title="Extended View" onClick={() => setExtendedView(true)} style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start' }}>⛶</button>
       </div>
+      {extendedView && (
+        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
+          <div className="modal" style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🏪 {merchant.name} — Extended View</span>
+              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
+            </div>
+            <TabPanel tabs={tabs} defaultTab="shop">{panels}</TabPanel>
+          </div>
+        </div>
+      )}
       <TabPanel tabs={tabs} defaultTab="shop">{panels}</TabPanel>
     </div>
   );
