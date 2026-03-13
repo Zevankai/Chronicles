@@ -90,10 +90,12 @@ export function cycleProficiency(current: string): string {
 // ENCUMBRANCE
 // ============================================================
 
-export function getInventoryWeight(inventory: Item[], coins?: Coins): number {
+export function getInventoryWeight(inventory: Item[], coins?: Coins, bagDropped?: boolean): number {
   const itemWeight = inventory.reduce((total, item) => {
     // Equipped items do not add to encumbrance
     if (item.equipped != null) return total;
+    // When bag is dropped, unequipped (bag) items don't count
+    if (bagDropped) return total;
     const unitWeight = item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
     return total + unitWeight * item.quantity;
   }, 0);
@@ -134,7 +136,7 @@ export function getOverEncumberedThreshold(bodyWeight: number, strMod: number): 
 export type EncumbranceStatus = 'normal' | 'combat' | 'over';
 
 export function getEncumbranceStatus(player: PlayerData): EncumbranceStatus {
-  const weight = getInventoryWeight(player.inventory, player.coins);
+  const weight = getInventoryWeight(player.inventory, player.coins, player.bagDropped);
   const strMod = getModifier(player.attributes.STR);
   const bodyWeight = parseBodyWeight(player);
   if (weight >= getOverEncumberedThreshold(bodyWeight, strMod)) return 'over';
@@ -365,6 +367,10 @@ export function createDefaultPlayerData(): PlayerData {
     deathSaves: { successes: 0, failures: 0 },
     hiddenNotes: '',
     exhaustionConfig: [],
+    features: [],
+    hitDiceMax: 0,
+    hitDiceRemaining: 0,
+    bagDropped: false,
     version: 1,
   };
 }
