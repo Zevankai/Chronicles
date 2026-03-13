@@ -9,6 +9,7 @@ import {
   Biome,
   InjurySeverity,
   BodyLocation,
+  SpellSlots,
 } from '../types';
 import {
   SKILL_ATTRIBUTE_MAP,
@@ -17,6 +18,15 @@ import {
   SEASON_TEMP_MODS,
   WEATHER_TABLES,
   COINS_TO_CP,
+  FULL_CASTERS,
+  HALF_CASTERS,
+  PACT_CASTERS,
+  THIRD_CASTERS,
+  ALL_CASTERS,
+  PREPARED_CASTERS,
+  SPELLCASTING_ABILITY,
+  FULL_CASTER_SLOTS,
+  WARLOCK_PACT_SLOTS,
 } from '../constants';
 
 // ============================================================
@@ -395,4 +405,122 @@ export function createDefaultMonsterData(): import('../types').MonsterData {
     challengeRating: '1/4',
     version: 1,
   };
+}
+
+// ============================================================
+// SPELLCASTING UTILITIES
+// ============================================================
+
+/** Returns the number of cantrips available at a given level (standard progression). */
+export function getMaxCantrips(level: number): number {
+  if (level >= 10) return 5;
+  if (level >= 4) return 4;
+  return 3;
+}
+
+/**
+ * Returns the maximum number of spells a prepared caster can have prepared.
+ * Only applicable to wizard, cleric, druid, paladin.
+ * Returns 0 for non-prepared casters.
+ */
+export function getPreparedSpellMax(
+  playerClass: string,
+  level: number,
+  attributes: AttributeScores
+): number {
+  const lowerClass = playerClass.toLowerCase();
+  if (!(PREPARED_CASTERS as readonly string[]).includes(lowerClass)) return 0;
+  const ability = SPELLCASTING_ABILITY[lowerClass];
+  if (!ability) return 0;
+  const modifier = getModifier(attributes[ability]);
+  return Math.max(1, level + modifier);
+}
+
+/**
+ * Returns the spell slots for a given class and level, preserving existing `used` counts.
+ * Warlock uses Pact Magic (separate slot pool, all same level).
+ */
+export function getSpellSlots(
+  playerClass: string,
+  level: number,
+  existingSlots?: SpellSlots
+): SpellSlots {
+  const lowerClass = playerClass.toLowerCase();
+  const existing = existingSlots;
+
+  // Build base empty slots
+  const empty: SpellSlots = {
+    1: { total: 0, used: 0 },
+    2: { total: 0, used: 0 },
+    3: { total: 0, used: 0 },
+    4: { total: 0, used: 0 },
+    5: { total: 0, used: 0 },
+    6: { total: 0, used: 0 },
+    7: { total: 0, used: 0 },
+    8: { total: 0, used: 0 },
+    9: { total: 0, used: 0 },
+  };
+
+  if (!((ALL_CASTERS as readonly string[]).includes(lowerClass))) {
+    return empty;
+  }
+
+  // Warlock: pact magic
+  if ((PACT_CASTERS as readonly string[]).includes(lowerClass)) {
+    const pact = WARLOCK_PACT_SLOTS[Math.max(1, Math.min(20, level))];
+    if (!pact) return empty;
+    const slots: SpellSlots = { ...empty };
+    for (let i = 1; i <= 9; i++) {
+      const lvl = i as keyof SpellSlots;
+      slots[lvl] = {
+        total: i === pact.level ? pact.slots : 0,
+        used: existing ? Math.min(existing[lvl].used, i === pact.level ? pact.slots : 0) : 0,
+      };
+    }
+    return slots;
+  }
+
+  // Determine effective caster level
+  let effectiveLevel = level;
+  if ((HALF_CASTERS as readonly string[]).includes(lowerClass)) {
+    effectiveLevel = Math.floor(level / 2);
+  } else if ((THIRD_CASTERS as readonly string[]).includes(lowerClass)) {
+    effectiveLevel = Math.floor(level / 3);
+  }
+
+  const slotTable = FULL_CASTER_SLOTS[Math.max(1, Math.min(20, effectiveLevel))] || {};
+  const slots: SpellSlots = { ...empty };
+  for (let i = 1; i <= 9; i++) {
+    const lvl = i as keyof SpellSlots;
+    const total = slotTable[i] || 0;
+    slots[lvl] = {
+      total,
+      used: existing ? Math.min(existing[lvl].used, total) : 0,
+    };
+  }
+  return slots;
+}
+
+/** Resets all used spell slots to 0 on long rest (all classes). */
+export function resetSpellSlotsOnLongRest(spellSlots: SpellSlots): SpellSlots {
+  const reset: SpellSlots = { ...spellSlots };
+  for (let i = 1; i <= 9; i++) {
+    const lvl = i as keyof SpellSlots;
+    reset[lvl] = { ...spellSlots[lvl], used: 0 };
+  }
+  return reset;
+}
+
+/**
+ * Returns whether the given class is a spellcasting class.
+ */
+export function isCasterClass(playerClass: string): boolean {
+  return (ALL_CASTERS as readonly string[]).includes(playerClass.toLowerCase());
+}
+
+/**
+ * Returns whether the given class is a prepared caster.
+ */
+export function isPreparedCaster(playerClass: string): boolean {
+  return (PREPARED_CASTERS as readonly string[]).includes(playerClass.toLowerCase());
 }

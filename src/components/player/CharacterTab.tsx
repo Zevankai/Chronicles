@@ -97,6 +97,16 @@ export function CharacterTab({ player, onChange, canEdit }: CharacterTabProps) {
           </select>
         </div>
         <div>
+          <label className="field-label">Subclass</label>
+          <input
+            type="text"
+            value={player.subclass ?? ''}
+            onChange={(e) => update('subclass', e.target.value || undefined)}
+            disabled={!canEdit}
+            placeholder="e.g. Champion, Life Domain"
+          />
+        </div>
+        <div>
           <label className="field-label">Gender</label>
           <input type="text" value={player.gender}
             onChange={(e) => update('gender', e.target.value)} disabled={!canEdit} />

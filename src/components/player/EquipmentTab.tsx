@@ -349,6 +349,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const [equipPickerItem, setEquipPickerItem] = useState<Item | null>(null);
   const [overCapacityWarning, setOverCapacityWarning] = useState(false);
   const [auxPickerItem, setAuxPickerItem] = useState<Item | null>(null);
+  const [viewingItem, setViewingItem] = useState<Item | null>(null);
 
   const totalWeight = getInventoryWeight(player.inventory, player.coins, player.bagDropped);
   const strMod = getModifier(player.attributes.STR);
@@ -480,8 +481,8 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
     });
   };
 
-  // Bag inventory = items not in aux slots
-  const bagItems = player.inventory.filter((i) => !i.equipped || !['Auxiliary1', 'Auxiliary2'].includes(i.equipped));
+  // Bag inventory = items with no equipment slot (equipped items move to slots only)
+  const bagItems = player.inventory.filter((i) => !i.equipped);
   // Quick inventory = items in aux slots
   const quickItems = player.inventory.filter((i) => i.equipped && ['Auxiliary1', 'Auxiliary2'].includes(i.equipped));
 
@@ -712,10 +713,53 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                 }}>
                   <div style={{ color: 'var(--color-text-muted)', fontSize: 10 }}>{icon} {label}</div>
                   {equipped ? (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold' }}>{equipped.name}</span>
-                      {canEdit && (
-                        <button className="btn-icon" onClick={() => toggleEquip(equipped, slot)} style={{ fontSize: 10 }}>✕</button>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <button
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            padding: 0, fontWeight: 'bold', fontSize: 11,
+                            color: 'var(--color-text)', textAlign: 'left', flex: 1,
+                          }}
+                          onClick={() => setViewingItem(equipped)}
+                          title="View details"
+                        >
+                          {equipped.name}
+                        </button>
+                        {canEdit && (
+                          <div style={{ display: 'flex', gap: 1 }}>
+                            <button
+                              className="btn-icon"
+                              onClick={() => setEditingItem(equipped)}
+                              title="Edit"
+                              style={{ fontSize: 10 }}
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              className="btn-icon"
+                              onClick={() => toggleEquip(equipped, slot)}
+                              title="Unequip"
+                              style={{ fontSize: 10 }}
+                            >
+                              ↩
+                            </button>
+                            <button
+                              className="btn-icon"
+                              onClick={() => removeItem(equipped.id)}
+                              title="Delete"
+                              style={{ fontSize: 10 }}
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {equipped.damage && (
+                        <div style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>⚔ {equipped.damage}</div>
+                      )}
+                      {equipped.acBonus !== undefined && (
+                        <div style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>🛡 +{equipped.acBonus} AC</div>
                       )}
                     </div>
                   ) : isBlocked ? (
@@ -780,6 +824,46 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
         <div>
           <div className="section-header">Quick Access (Auxiliary Bags)</div>
           {renderInventoryList(quickItems, false, true)}
+        </div>
+      )}
+
+      {/* Item detail view modal */}
+      {viewingItem && (
+        <div className="modal-overlay" onClick={() => setViewingItem(null)}>
+          <div className="modal" style={{ maxWidth: 320 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🔍 {viewingItem.name}</span>
+              <button className="btn-icon" onClick={() => setViewingItem(null)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                {viewingItem.category}
+                {viewingItem.equipped && ` · Equipped: ${viewingItem.equipped}`}
+                {` · ×${viewingItem.quantity}`}
+              </div>
+              {viewingItem.description && (
+                <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{viewingItem.description}</div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, fontSize: 11 }}>
+                {viewingItem.damage && <div><strong>Damage:</strong> {viewingItem.damage}</div>}
+                {viewingItem.hitModifier !== undefined && <div><strong>Hit Mod:</strong> {viewingItem.hitModifier >= 0 ? '+' : ''}{viewingItem.hitModifier}</div>}
+                {viewingItem.damageModifier !== undefined && <div><strong>Dmg Mod:</strong> {viewingItem.damageModifier >= 0 ? '+' : ''}{viewingItem.damageModifier}</div>}
+                {viewingItem.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{viewingItem.acBonus}</div>}
+                {viewingItem.maxCharges !== undefined && <div><strong>Charges:</strong> {viewingItem.currentCharges ?? 0}/{viewingItem.maxCharges}</div>}
+                {viewingItem.value !== undefined && <div><strong>Value:</strong> {viewingItem.value} cp</div>}
+                {viewingItem.requiresAttunement && <div><strong>Attunement:</strong> {viewingItem.attuned ? '✦ Attuned' : '◇ Required'}</div>}
+              </div>
+              {viewingItem.properties && (
+                <div style={{ fontSize: 11 }}><strong>Properties:</strong> {viewingItem.properties}</div>
+              )}
+            </div>
+            {canEdit && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 12, justifyContent: 'flex-end' }}>
+                <button className="btn btn-sm btn-secondary" onClick={() => { setEditingItem(viewingItem); setViewingItem(null); }}>✏️ Edit</button>
+                <button className="btn btn-sm btn-danger" onClick={() => { removeItem(viewingItem.id); setViewingItem(null); }}>🗑 Delete</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -166,6 +166,14 @@ export function PlayerToken({
                 <input
                   className="banner-input"
                   type="text"
+                  value={player.subclass ?? ''}
+                  onChange={(e) => update('subclass', e.target.value)}
+                  placeholder="Subclass"
+                  style={{ flex: 1, fontSize: 11, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: 3, padding: '1px 4px' }}
+                />
+                <input
+                  className="banner-input"
+                  type="text"
                   value={player.playerClass}
                   onChange={(e) => update('playerClass', e.target.value)}
                   placeholder="Class"
@@ -194,7 +202,7 @@ export function PlayerToken({
             <div onClick={() => canEdit && setEditingBanner(true)} style={{ cursor: canEdit ? 'pointer' : 'default' }} title={canEdit ? 'Click to edit' : undefined}>
               <div className="token-name">{player.name || 'Unnamed Character'}</div>
               <div className="token-subtitle">
-                {[player.race, player.playerClass, player.level ? `Level ${player.level}` : ''].filter(Boolean).join(' · ')}
+                {[player.race, player.subclass || null, player.playerClass, player.level ? `Level ${player.level}` : ''].filter(Boolean).join(' · ')}
               </div>
               <div className="token-subtitle">
                 AC {player.ac}

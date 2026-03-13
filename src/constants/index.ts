@@ -371,3 +371,75 @@ export const DEFAULT_TRADE_RANGE = 5; // squares
 export const DEFAULT_AC = 10;
 export const DEFAULT_PROFICIENCY_BONUS = 2;
 export const DEFAULT_SPEED = 30;
+
+// ============================================================
+// SPELLCASTING CONSTANTS
+// ============================================================
+
+export const FULL_CASTERS = ['wizard', 'cleric', 'druid', 'bard', 'sorcerer'] as const;
+export const HALF_CASTERS = ['paladin', 'ranger'] as const;
+export const PACT_CASTERS = ['warlock'] as const;
+export const THIRD_CASTERS = ['eldritch knight', 'arcane trickster'] as const;
+export const ALL_CASTERS = [...FULL_CASTERS, ...HALF_CASTERS, ...PACT_CASTERS, ...THIRD_CASTERS] as const;
+export const PREPARED_CASTERS = ['wizard', 'cleric', 'druid', 'paladin'] as const;
+
+export const SPELLCASTING_ABILITY: Record<string, 'INT' | 'WIS' | 'CHA'> = {
+  wizard: 'INT',
+  cleric: 'WIS',
+  druid: 'WIS',
+  bard: 'CHA',
+  sorcerer: 'CHA',
+  paladin: 'CHA',
+  ranger: 'WIS',
+  warlock: 'CHA',
+  'eldritch knight': 'INT',
+  'arcane trickster': 'INT',
+};
+
+// Full caster spell slot table (levels 1–20)
+export const FULL_CASTER_SLOTS: Record<number, Record<number, number>> = {
+  1:  { 1: 2 },
+  2:  { 1: 3 },
+  3:  { 1: 4, 2: 2 },
+  4:  { 1: 4, 2: 3 },
+  5:  { 1: 4, 2: 3, 3: 2 },
+  6:  { 1: 4, 2: 3, 3: 3 },
+  7:  { 1: 4, 2: 3, 3: 3, 4: 1 },
+  8:  { 1: 4, 2: 3, 3: 3, 4: 2 },
+  9:  { 1: 4, 2: 3, 3: 3, 4: 3, 5: 1 },
+  10: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2 },
+  11: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1 },
+  12: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1 },
+  13: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1 },
+  14: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1 },
+  15: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1, 8: 1 },
+  16: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1, 8: 1 },
+  17: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1, 8: 1, 9: 1 },
+  18: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 1, 7: 1, 8: 1, 9: 1 },
+  19: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 2, 7: 1, 8: 1, 9: 1 },
+  20: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 2, 7: 2, 8: 1, 9: 1 },
+};
+
+// Warlock pact magic table: { slots, level } per class level
+export const WARLOCK_PACT_SLOTS: Record<number, { slots: number; level: number }> = {
+  1:  { slots: 1, level: 1 },
+  2:  { slots: 2, level: 1 },
+  3:  { slots: 2, level: 2 },
+  4:  { slots: 2, level: 2 },
+  5:  { slots: 2, level: 3 },
+  6:  { slots: 2, level: 3 },
+  7:  { slots: 2, level: 4 },
+  8:  { slots: 2, level: 4 },
+  9:  { slots: 2, level: 5 },
+  10: { slots: 2, level: 5 },
+  11: { slots: 3, level: 5 },
+  12: { slots: 3, level: 5 },
+  13: { slots: 3, level: 5 },
+  14: { slots: 3, level: 5 },
+  15: { slots: 3, level: 5 },
+  16: { slots: 3, level: 5 },
+  17: { slots: 4, level: 5 },
+  18: { slots: 4, level: 5 },
+  19: { slots: 4, level: 5 },
+  20: { slots: 4, level: 5 },
+};

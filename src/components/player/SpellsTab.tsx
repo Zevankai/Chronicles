@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlayerData, Spell, SpellSlots } from '../../types';
-import { generateId } from '../../utils';
+import { generateId, getPreparedSpellMax, getSpellSlots, getMaxCantrips, isPreparedCaster, isCasterClass } from '../../utils';
+import { SPELLCASTING_ABILITY } from '../../constants';
 
 interface SpellsTabProps {
   player: PlayerData;
@@ -188,6 +189,20 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null);
   const [editingSpell, setEditingSpell] = useState<Spell | null>(null);
 
+  // Determine spellcasting class (use spellcastingClass override or fall back to playerClass)
+  const castingClass = (player.spellcastingClass || player.playerClass || '').toLowerCase();
+  const isKnownCaster = isCasterClass(castingClass);
+  const isPrepared = isPreparedCaster(castingClass);
+  const spellcastingAbility = SPELLCASTING_ABILITY[castingClass];
+  const preparedMax = isPrepared
+    ? getPreparedSpellMax(castingClass, player.level, player.attributes)
+    : 0;
+  const maxCantrips = isKnownCaster ? getMaxCantrips(player.level) : null;
+
+  const nonCantripSpells = player.spells.filter((s) => s.level > 0);
+  const preparedCount = nonCantripSpells.filter((s) => s.prepared).length;
+  const cantripCount = player.spells.filter((s) => s.level === 0).length;
+
   const updateSlot = (level: number, used: number) => {
     onChange({
       ...player,
@@ -208,6 +223,12 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
     });
   };
 
+  const syncSlotsFromClass = () => {
+    if (!isKnownCaster) return;
+    const newSlots = getSpellSlots(castingClass, player.level, player.spellSlots);
+    onChange({ ...player, spellSlots: newSlots });
+  };
+
   const addSpell = (spell: Spell) => {
     onChange({ ...player, spells: [...player.spells, spell] });
   };
@@ -224,6 +245,15 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
   };
 
   const togglePrepared = (id: string) => {
+    const spell = player.spells.find((s) => s.id === id);
+    if (!spell) return;
+
+    // Enforce preparation limit for prepared casters
+    if (isPrepared && !spell.prepared && preparedCount >= preparedMax) {
+      alert(`You can only prepare ${preparedMax} spell${preparedMax !== 1 ? 's' : ''} (${castingClass} level ${player.level} with ${spellcastingAbility} modifier).`);
+      return;
+    }
+
     onChange({
       ...player,
       spells: player.spells.map((s) => s.id === id ? { ...s, prepared: !s.prepared } : s),
@@ -232,6 +262,67 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
 
   return (
     <div>
+      {/* Spellcasting info banner for known casters */}
+      {isKnownCaster && (
+        <div style={{
+          background: 'var(--color-bg)',
+          border: '1px solid var(--color-border-light)',
+          borderRadius: 4,
+          padding: '6px 8px',
+          marginBottom: 8,
+          fontSize: 11,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
+          alignItems: 'center',
+        }}>
+          <span style={{ color: 'var(--color-primary)', fontWeight: 'bold', textTransform: 'capitalize' }}>
+            {castingClass}
+          </span>
+          {spellcastingAbility && (
+            <span style={{ color: 'var(--color-text-muted)' }}>
+              Spellcasting: <strong style={{ color: 'var(--color-text)' }}>{spellcastingAbility}</strong>
+            </span>
+          )}
+          {maxCantrips !== null && (
+            <span style={{ color: cantripCount > maxCantrips ? 'var(--color-warning)' : 'var(--color-text-muted)' }}>
+              Cantrips: <strong style={{ color: 'var(--color-text)' }}>{cantripCount}/{maxCantrips}</strong>
+            </span>
+          )}
+          {isPrepared && (
+            <span style={{ color: preparedCount > preparedMax ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+              Prepared: <strong style={{ color: preparedCount > preparedMax ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                {preparedCount}/{preparedMax}
+              </strong>
+            </span>
+          )}
+          {canEdit && (
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={syncSlotsFromClass}
+              title={`Auto-set spell slots for ${castingClass} level ${player.level}`}
+              style={{ marginLeft: 'auto', fontSize: 10 }}
+            >
+              ⚡ Sync Slots
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Spellcasting class override (for multiclass or non-standard) */}
+      {canEdit && (
+        <div style={{ marginBottom: 8 }}>
+          <label className="field-label">Spellcasting Class Override</label>
+          <input
+            type="text"
+            value={player.spellcastingClass ?? ''}
+            onChange={(e) => onChange({ ...player, spellcastingClass: e.target.value || undefined })}
+            placeholder={`Defaults to "${player.playerClass || 'class'}" — override for multiclass`}
+            style={{ fontSize: 11 }}
+          />
+        </div>
+      )}
+
       {/* Spell Slots */}
       <div className="section-header">Spell Slots</div>
       {([1,2,3,4,5,6,7,8,9] as const).map((level) => (
@@ -255,8 +346,18 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
         if (levelSpells.length === 0) return null;
         return (
           <div key={level} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
               {level === 0 ? 'Cantrips' : `Level ${level}`}
+              {level === 0 && maxCantrips !== null && (
+                <span style={{ fontSize: 9, color: 'var(--color-text-muted)', fontWeight: 'normal' }}>
+                  (always available · {cantripCount}/{maxCantrips})
+                </span>
+              )}
+              {level > 0 && isPrepared && (
+                <span style={{ fontSize: 9, color: 'var(--color-text-muted)', fontWeight: 'normal' }}>
+                  (✓ = prepared)
+                </span>
+              )}
             </div>
             {levelSpells.map((spell) => (
               <div key={spell.id} style={{
@@ -273,7 +374,7 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
                         type="checkbox"
                         checked={spell.prepared}
                         onChange={() => togglePrepared(spell.id)}
-                        title="Prepared"
+                        title={isPrepared ? `Prepared (${preparedCount}/${preparedMax})` : 'Prepared'}
                         disabled={!canEdit}
                       />
                     )}
