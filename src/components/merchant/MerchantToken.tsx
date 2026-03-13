@@ -235,7 +235,7 @@ export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem,
                     onClick={() => onBuyItem(item, qty, priceCp * qty)}
                     disabled={item.quantity < qty}
                   >
-                    Buy ({formatPrice(item.price, item.value || 100, merchant.costInflation)} ×{qty})
+                    Buy ×{qty} ({formatPrice(item.price, item.value || 100, merchant.costInflation * qty)})
                   </button>
                 </>
               )}

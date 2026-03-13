@@ -338,14 +338,14 @@ export function TradeSelector({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {tradableTokens.map((token) => {
               const activeTrades = roomData?.activeTrades || {};
-              const isLocked = activeTrades[token.id] && activeTrades[token.id] !== playerId;
+              const isLocked = !!(activeTrades[token.id] && activeTrades[token.id] !== playerId);
               return (
                 <button
                   key={token.id}
                   className={`btn btn-secondary${isLocked ? ' btn-disabled' : ''}`}
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: isLocked ? 0.5 : 1 }}
                   onClick={() => !isLocked && handleSelectTarget(token)}
-                  disabled={isLocked || false}
+                  disabled={isLocked}
                 >
                   <span>{token.icon} {token.name}</span>
                   <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>

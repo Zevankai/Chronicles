@@ -86,8 +86,8 @@ const LONG_REST_DESCRIPTIONS: Record<string, { description: string; effect: stri
     effect: 'Gain 1d8 + proficiency bonus temporary hit points.',
   },
   'Bond': {
-    description: 'Spend time strengthening your teamwork.',
-    effect: 'Gain +2 to the next day\'s rolls when collaborating with another player who chooses to also bond with you during this rest.',
+    description: "Spend time strengthening your teamwork.",
+    effect: "Gain +2 to the next day's rolls when collaborating with another player who chooses to also bond with you during this rest.",
   },
   'Craft': {
     description: 'Use tools and skill to craft items.',
@@ -98,8 +98,8 @@ const LONG_REST_DESCRIPTIONS: Record<string, { description: string; effect: stri
     effect: 'Gain advantage on navigation and survival checks in this biome for the next day.',
   },
   'Care': {
-    description: 'Tend to your companion\'s needs, improving its performance.',
-    effect: 'Grant advantage on all rolls for your animal companion or summoned creature for the next day.',
+    description: "Tend to your companion's needs, improving its performance.",
+    effect: "Grant advantage on all rolls for your animal companion or summoned creature for the next day.",
   },
   'Tell a Joke': {
     description: 'Share a joke, funny story, or embarrassing tale from your travels.',
@@ -191,7 +191,12 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
     // If long rest includes Work, show project picker
     if (showRestModal === 'long' && selectedOptions.includes('Work')) {
       const projects = player.projects || [];
-      if (projects.length > 0 && !showWorkProjectPicker) {
+      if (projects.length === 0) {
+        // No projects exist - warn and skip Work
+        alert('No projects found. Add projects in the Character tab first.');
+        return;
+      }
+      if (!showWorkProjectPicker) {
         setShowWorkProjectPicker(true);
         return;
       }

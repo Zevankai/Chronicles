@@ -368,7 +368,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
     // Check encumbrance before adding
     const newWeight = totalWeight + getItemWeight(item) * item.quantity;
     if (newWeight > overThreshold) {
-      alert(`Cannot add item: would exceed Over Encumbered limit (${overThreshold.toFixed(1)} units). You are already carrying ${totalWeight.toFixed(1)} units.`);
+      alert(`Cannot add item: total weight would be ${newWeight.toFixed(1)} units, exceeding the Over Encumbered limit (${overThreshold.toFixed(1)} units).`);
       return;
     }
     onChange({ ...player, inventory: [...player.inventory, item] });

@@ -8,7 +8,6 @@ import { TabPanel } from '../common/TabPanel';
 import { GMTab } from '../player/GMTab';
 import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
 import { generateId } from '../../utils';
-import { Item as ItemType } from '../../types';
 
 interface MonsterTokenProps {
   monster: MonsterData;
@@ -110,7 +109,7 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
   const [newAbilityDesc, setNewAbilityDesc] = useState('');
   const [newActionName, setNewActionName] = useState('');
   const [newActionDesc, setNewActionDesc] = useState('');
-  const [editingLootItem, setEditingLootItem] = useState<ItemType | null>(null);
+  const [editingLootItem, setEditingLootItem] = useState<Item | null>(null);
   const [expandedLootId, setExpandedLootId] = useState<string | null>(null);
   const [newLootName, setNewLootName] = useState('');
   const [newLootCategory, setNewLootCategory] = useState<ItemCategory>('Other');
