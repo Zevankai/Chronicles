@@ -330,58 +330,6 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
         />
       </div>
 
-      {/* Death Saves */}
-      <div>
-        <div className="section-header">Death Saves</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--color-success)', fontWeight: 'bold', marginBottom: 4 }}>✓ Successes</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[0, 1, 2].map((i) => (
-                <label key={i} style={{ display: 'flex', alignItems: 'center', cursor: canEdit ? 'pointer' : 'default' }}>
-                  <input
-                    type="checkbox"
-                    checked={(player.deathSaves?.successes ?? 0) > i}
-                    disabled={!canEdit}
-                    onChange={(e) => {
-                      const next = e.target.checked ? Math.min(3, i + 1) : i;
-                      update('deathSaves', { ...player.deathSaves, successes: next });
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--color-danger)', fontWeight: 'bold', marginBottom: 4 }}>✗ Failures</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[0, 1, 2].map((i) => (
-                <label key={i} style={{ display: 'flex', alignItems: 'center', cursor: canEdit ? 'pointer' : 'default' }}>
-                  <input
-                    type="checkbox"
-                    checked={(player.deathSaves?.failures ?? 0) > i}
-                    disabled={!canEdit}
-                    onChange={(e) => {
-                      const next = e.target.checked ? Math.min(3, i + 1) : i;
-                      update('deathSaves', { ...player.deathSaves, failures: next });
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        {canEdit && (
-          <button
-            className="btn btn-sm btn-secondary"
-            style={{ marginTop: 6 }}
-            onClick={() => update('deathSaves', { successes: 0, failures: 0 })}
-          >
-            Reset
-          </button>
-        )}
-      </div>
-
       {/* Exhaustion */}
       <div>
         <div className="section-header">Exhaustion</div>
@@ -725,6 +673,59 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
           </div>
         </div>
       )}
+
+      {/* Death Saves */}
+      <div style={{ textAlign: 'center' }}>
+        <div className="section-header">Death Saves</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--color-success)', fontWeight: 'bold', marginBottom: 4 }}>✓ Successes</div>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+              {[0, 1, 2].map((i) => (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', cursor: canEdit ? 'pointer' : 'default' }}>
+                  <input
+                    type="checkbox"
+                    checked={(player.deathSaves?.successes ?? 0) > i}
+                    disabled={!canEdit}
+                    onChange={(e) => {
+                      const next = e.target.checked ? Math.min(3, i + 1) : i;
+                      update('deathSaves', { ...player.deathSaves, successes: next });
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--color-danger)', fontWeight: 'bold', marginBottom: 4 }}>✗ Failures</div>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+              {[0, 1, 2].map((i) => (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', cursor: canEdit ? 'pointer' : 'default' }}>
+                  <input
+                    type="checkbox"
+                    checked={(player.deathSaves?.failures ?? 0) > i}
+                    disabled={!canEdit}
+                    onChange={(e) => {
+                      const next = e.target.checked ? Math.min(3, i + 1) : i;
+                      update('deathSaves', { ...player.deathSaves, failures: next });
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        {canEdit && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => update('deathSaves', { successes: 0, failures: 0 })}
+            >
+              Reset
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

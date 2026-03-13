@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import OBR from '@owlbear-rodeo/sdk';
 import { AnyTokenData, PlayerData, MonsterData, CompanionData, StorageData, LoreData, NPCData, MerchantData, RoomMetadata, CalendarConfig, WeatherData } from '../types';
 import { PlayerToken } from './player';
 import { MonsterToken } from './monster';
@@ -7,7 +8,6 @@ import { StorageToken } from './storage';
 import { LoreToken } from './lore';
 import { NPCToken } from './npc';
 import { MerchantToken } from './merchant';
-import { TradeSelector } from './trading/TradeSelector';
 import { createDefaultPlayerData, createDefaultMonsterData } from '../utils';
 
 interface TokenSelectorProps {
@@ -109,8 +109,6 @@ function createDefaultForType(type: string, currentData: AnyTokenData): AnyToken
 }
 
 export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData, onRoomUpdate, tokenImageUrl }: TokenSelectorProps) {
-  const [showTrade, setShowTrade] = useState(false);
-
   if (!data) {
     return <NoTokenData itemId={itemId} isGM={isGM} onUpdate={onUpdate} />;
   }
@@ -126,34 +124,28 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
       const player = data as PlayerData;
       const isOwner = player.ownerId === playerId;
       return (
-        <>
-          <PlayerToken
-            player={player}
-            onUpdate={(updated) => onUpdate(updated)}
-            isGM={isGM}
-            isOwner={isOwner || isGM}
-            playerId={playerId}
-            calendar={calendar}
-            weather={weather}
-            onCalendarChange={onCalendarChange}
-            onWeatherChange={onWeatherChange}
-            onTradeClick={() => setShowTrade(true)}
-            itemId={itemId}
-            tokenImageUrl={tokenImageUrl}
-          />
-          {showTrade && playerId && (
-            <TradeSelector
-              currentTokenId={itemId}
-              currentData={player}
-              playerId={playerId}
-              isGM={isGM}
-              roomData={roomData}
-              onRoomUpdate={onRoomUpdate}
-              onTradeComplete={(updated) => onUpdate(updated)}
-              onClose={() => setShowTrade(false)}
-            />
-          )}
-        </>
+        <PlayerToken
+          player={player}
+          onUpdate={(updated) => onUpdate(updated)}
+          isGM={isGM}
+          isOwner={isOwner || isGM}
+          playerId={playerId}
+          calendar={calendar}
+          weather={weather}
+          onCalendarChange={onCalendarChange}
+          onWeatherChange={onWeatherChange}
+          onTradeClick={() => {
+            const base = window.location.href.split('?')[0];
+            OBR.popover.open({
+              id: 'chronicles-trade',
+              url: `${base}?view=trade&itemId=${encodeURIComponent(itemId)}`,
+              width: 700,
+              height: 600,
+            });
+          }}
+          itemId={itemId}
+          tokenImageUrl={tokenImageUrl}
+        />
       );
     }
     case 'monster': {
