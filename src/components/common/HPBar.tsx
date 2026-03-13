@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface HPBarProps {
   current: number;
@@ -13,6 +13,9 @@ export function HPBar({ current, max, temp = 0, editable = false, onCurrentChang
   const [editing, setEditing] = useState(false);
   const [editCurrent, setEditCurrent] = useState(current);
   const [editTemp, setEditTemp] = useState(temp);
+
+  useEffect(() => { setEditCurrent(current); }, [current]);
+  useEffect(() => { setEditTemp(temp); }, [temp]);
 
   const pct = max > 0 ? Math.min(100, (current / max) * 100) : 0;
   const status = pct > 60 ? 'healthy' : pct > 30 ? 'wounded' : 'critical';

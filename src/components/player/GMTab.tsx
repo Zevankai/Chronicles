@@ -127,7 +127,7 @@ export function GMTab({
           {(() => {
             const jsonStr = JSON.stringify({ [TOKEN_NAMESPACE]: tokenData });
             const byteSize = new TextEncoder().encode(jsonStr).length;
-            const maxBytes = 8192; // OBR metadata limit per item
+            const maxBytes = 1048576; // OBR metadata limit: ~1MB per metadata key
             const pct = Math.min(100, (byteSize / maxBytes) * 100);
             return (
               <div>

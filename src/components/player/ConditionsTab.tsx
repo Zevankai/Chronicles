@@ -257,17 +257,15 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
   };
 
   const handleWorkProjectSelect = (projectId: string) => {
-    const projects = player.projects || [];
-    const updated = projects.map((p) =>
+    const projects = (player.projects || []).map((p) =>
       p.id === projectId ? { ...p, progressPoints: p.progressPoints + 1 } : p
     );
-    onChange({ ...player, projects: updated });
     setShowWorkProjectPicker(false);
-    // Continue with rest after project selection
-    doRestAfterWork();
+    // Pass updated projects into doRestAfterWork to avoid stale closure overwrite
+    doRestAfterWork(projects);
   };
 
-  const doRestAfterWork = () => {
+  const doRestAfterWork = (updatedProjects?: Project[]) => {
     const restBonus = {
       restType: 'long' as const,
       selectedOptions,
@@ -283,6 +281,7 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       ) as PlayerData['spellSlots'],
       lastRestBonus: restBonus,
       lastLongRestBonus: restBonus,
+      ...(updatedProjects ? { projects: updatedProjects } : {}),
     };
     const merged: PlayerData = { ...player, ...updates };
     const sevOrder: InjurySeverity[] = ['critical', 'severe', 'minor'];

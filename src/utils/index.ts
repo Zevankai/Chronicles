@@ -90,13 +90,18 @@ export function cycleProficiency(current: string): string {
 // ENCUMBRANCE
 // ============================================================
 
-export function getInventoryWeight(inventory: Item[]): number {
-  return inventory.reduce((total, item) => {
+export function getInventoryWeight(inventory: Item[], coins?: Coins): number {
+  const itemWeight = inventory.reduce((total, item) => {
     // Equipped items do not add to encumbrance
     if (item.equipped != null) return total;
     const unitWeight = item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
     return total + unitWeight * item.quantity;
   }, 0);
+  if (coins) {
+    const coinWeight = (coins.cp + coins.sp + coins.gp + coins.pp) * 0.01;
+    return itemWeight + coinWeight;
+  }
+  return itemWeight;
 }
 
 export function getPlayerCapacity(player: PlayerData): number {
@@ -109,7 +114,7 @@ export function getPlayerCapacity(player: PlayerData): number {
     : DEFAULT_CAPACITY;
 }
 
-function parseBodyWeight(player: PlayerData): number {
+export function parseBodyWeight(player: PlayerData): number {
   // Try to parse weight from character tab string (e.g. "180 lbs" -> 180)
   if (player.weight) {
     const parsed = parseFloat(player.weight);
@@ -129,7 +134,7 @@ export function getOverEncumberedThreshold(bodyWeight: number, strMod: number): 
 export type EncumbranceStatus = 'normal' | 'combat' | 'over';
 
 export function getEncumbranceStatus(player: PlayerData): EncumbranceStatus {
-  const weight = getInventoryWeight(player.inventory);
+  const weight = getInventoryWeight(player.inventory, player.coins);
   const strMod = getModifier(player.attributes.STR);
   const bodyWeight = parseBodyWeight(player);
   if (weight >= getOverEncumberedThreshold(bodyWeight, strMod)) return 'over';
