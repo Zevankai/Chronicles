@@ -328,9 +328,3 @@ export function SpellsTab({ player, onChange, canEdit }: SpellsTabProps) {
   );
 }
 
-
-interface SpellsTabProps {
-  player: PlayerData;
-  onChange: (updated: PlayerData) => void;
-  canEdit: boolean;
-}

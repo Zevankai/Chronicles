@@ -10,6 +10,7 @@ interface LoreTokenProps {
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
+  playerId?: string | null;
 }
 
 const LORE_CATEGORIES: LoreCategory[] = ['Location', 'Object', 'Landmark', 'Historical', 'Organization', 'Other'];
@@ -23,7 +24,7 @@ const CATEGORY_ICONS: Record<LoreCategory, string> = {
   Other: '📜',
 };
 
-export function LoreToken({ lore, onUpdate, isGM, calendar, onCalendarChange, onTokenTypeChange }: LoreTokenProps) {
+export function LoreToken({ lore, onUpdate, isGM, calendar, onCalendarChange, onTokenTypeChange, playerId }: LoreTokenProps) {
   const update = <K extends keyof LoreData>(key: K, value: LoreData[K]) =>
     onUpdate({ ...lore, [key]: value });
 
@@ -89,6 +90,24 @@ export function LoreToken({ lore, onUpdate, isGM, calendar, onCalendarChange, on
             <textarea value={lore.notes} onChange={(e) => update('notes', e.target.value)} rows={3} />
           </div>
         </>
+      )}
+
+      {/* Claim button */}
+      {lore.claimable && !isGM && (
+        <div style={{ textAlign: 'center', padding: '8px 0', marginTop: 8 }}>
+          {lore.claimedBy ? (
+            <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
+              ✅ Claimed {lore.claimedBy === playerId ? '(by you)' : '(by another player)'}
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => playerId && onUpdate({ ...lore, claimedBy: playerId })}
+            >
+              🏷 Claim
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

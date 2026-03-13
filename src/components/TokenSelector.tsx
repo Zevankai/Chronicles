@@ -7,6 +7,7 @@ import { StorageToken } from './storage';
 import { LoreToken } from './lore';
 import { NPCToken } from './npc';
 import { MerchantToken } from './merchant';
+import { TradeSelector } from './trading/TradeSelector';
 import { createDefaultPlayerData, createDefaultMonsterData } from '../utils';
 
 interface TokenSelectorProps {
@@ -124,18 +125,33 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
       const player = data as PlayerData;
       const isOwner = player.ownerId === playerId;
       return (
-        <PlayerToken
-          player={player}
-          onUpdate={(updated) => onUpdate(updated)}
-          isGM={isGM}
-          isOwner={isOwner || isGM}
-          calendar={calendar}
-          weather={weather}
-          onCalendarChange={onCalendarChange}
-          onWeatherChange={onWeatherChange}
-          onTradeClick={() => setShowTrade(true)}
-          itemId={itemId}
-        />
+        <>
+          <PlayerToken
+            player={player}
+            onUpdate={(updated) => onUpdate(updated)}
+            isGM={isGM}
+            isOwner={isOwner || isGM}
+            playerId={playerId}
+            calendar={calendar}
+            weather={weather}
+            onCalendarChange={onCalendarChange}
+            onWeatherChange={onWeatherChange}
+            onTradeClick={() => setShowTrade(true)}
+            itemId={itemId}
+          />
+          {showTrade && playerId && (
+            <TradeSelector
+              currentTokenId={itemId}
+              currentData={player}
+              playerId={playerId}
+              isGM={isGM}
+              roomData={roomData}
+              onRoomUpdate={onRoomUpdate}
+              onTradeComplete={(updated) => onUpdate(updated)}
+              onClose={() => setShowTrade(false)}
+            />
+          )}
+        </>
       );
     }
     case 'monster': {
@@ -147,6 +163,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
+          playerId={playerId}
         />
       );
     }
@@ -162,6 +179,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
+          playerId={playerId}
         />
       );
     }
@@ -175,6 +193,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
+          playerId={playerId}
         />
       );
     }
@@ -187,6 +206,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
+          playerId={playerId}
         />
       );
     }
@@ -199,6 +219,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
+          playerId={playerId}
         />
       );
     }
@@ -211,21 +232,11 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
+          playerId={playerId}
         />
       );
     }
     default:
       return <div className="loading">Unknown token type.</div>;
   }
-}
-
-
-interface TokenSelectorProps {
-  itemId: string;
-  data: AnyTokenData | null;
-  onUpdate: (data: AnyTokenData) => void;
-  isGM: boolean;
-  playerId: string | null;
-  roomData: RoomMetadata | null;
-  onRoomUpdate?: (data: RoomMetadata) => void;
 }

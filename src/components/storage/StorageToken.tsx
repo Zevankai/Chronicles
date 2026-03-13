@@ -1,9 +1,9 @@
-import React from 'react';
-import { StorageData, StorageType, CalendarConfig } from '../../types';
+import React, { useState } from 'react';
+import { StorageData, StorageType, CalendarConfig, Item, ItemCategory } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { GMTab } from '../player/GMTab';
-import { STORAGE_CAPACITIES, ITEM_CATEGORY_WEIGHTS } from '../../constants';
+import { STORAGE_CAPACITIES, ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
 
 interface StorageTokenProps {
@@ -14,14 +14,114 @@ interface StorageTokenProps {
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
+  playerId?: string | null;
 }
 
-export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onCalendarChange, onTokenTypeChange }: StorageTokenProps) {
+function ItemEditForm({
+  item,
+  onChange,
+  onClose,
+}: {
+  item: Item;
+  onChange: (updated: Item) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState({ ...item });
+  const update = <K extends keyof Item>(key: K, value: Item[K]) =>
+    setDraft((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Edit Item</span>
+          <button className="btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <div>
+              <label className="field-label">Name</label>
+              <input type="text" value={draft.name} onChange={(e) => update('name', e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Category</label>
+              <select value={draft.category} onChange={(e) => update('category', e.target.value as ItemCategory)}>
+                {ITEM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Quantity</label>
+              <input type="number" value={draft.quantity} min={0}
+                onChange={(e) => update('quantity', parseInt(e.target.value) || 0)} />
+            </div>
+            <div>
+              <label className="field-label">Weight (units)</label>
+              <input type="number" value={draft.weight ?? ''} placeholder="Default" min={0} step={0.1}
+                onChange={(e) => update('weight', e.target.value ? parseFloat(e.target.value) : undefined)} />
+            </div>
+            <div>
+              <label className="field-label">Value (CP)</label>
+              <input type="number" value={draft.value ?? ''} placeholder="0" min={0}
+                onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+            </div>
+          </div>
+          <div>
+            <label className="field-label">Description</label>
+            <textarea value={draft.description || ''} onChange={(e) => update('description', e.target.value)} rows={2} />
+          </div>
+          {['One-Handed Weapon', 'Two-Handed Weapon'].includes(draft.category) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <div>
+                <label className="field-label">Damage</label>
+                <input type="text" value={draft.damage || ''} placeholder="e.g. 1d8"
+                  onChange={(e) => update('damage', e.target.value)} />
+              </div>
+              <div>
+                <label className="field-label">Hit Modifier</label>
+                <input type="number" value={draft.hitModifier ?? ''} placeholder="0"
+                  onChange={(e) => update('hitModifier', e.target.value ? parseInt(e.target.value) : undefined)} />
+              </div>
+            </div>
+          )}
+          {['Light Armor', 'Medium Armor', 'Heavy Armor', 'Shield'].includes(draft.category) && (
+            <div>
+              <label className="field-label">AC Bonus</label>
+              <input type="number" value={draft.acBonus ?? ''} placeholder="0" min={0}
+                onChange={(e) => update('acBonus', e.target.value ? parseInt(e.target.value) : undefined)} />
+            </div>
+          )}
+          <div>
+            <label className="field-label">Properties / Notes</label>
+            <textarea value={draft.properties || ''} onChange={(e) => update('properties', e.target.value)} rows={2} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => { onChange(draft); onClose(); }}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onCalendarChange, onTokenTypeChange, playerId }: StorageTokenProps) {
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState<ItemCategory>('Other');
+
   const update = <K extends keyof StorageData>(key: K, value: StorageData[K]) =>
     onUpdate({ ...storage, [key]: value });
 
   const totalWeight = getInventoryWeight(storage.inventory);
   const weightPct = storage.capacity > 0 ? Math.min(100, (totalWeight / storage.capacity) * 100) : 0;
+
+  const addItem = () => {
+    if (!newItemName.trim()) return;
+    update('inventory', [...storage.inventory, { id: generateId(), name: newItemName.trim(), category: newItemCategory, quantity: 1, equipped: null }]);
+    setNewItemName('');
+    setNewItemCategory('Other');
+  };
 
   const tabs = [
     { id: 'inventory', label: '🎒 Inventory' },
@@ -59,38 +159,111 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
             readonly={!canAccess}
           />
           <div className="divider" />
-          {storage.inventory.map((item) => (
-            <div key={item.id} className="inventory-row">
-              <span style={{ fontSize: 12 }}>{item.name}</span>
-              <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{item.category}</span>
-              <span style={{ fontSize: 11 }}>{(ITEM_CATEGORY_WEIGHTS[item.category] * item.quantity).toFixed(1)}u</span>
-              {canAccess ? (
-                <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    min={0}
-                    onChange={(e) => update('inventory', storage.inventory.map((i) =>
-                      i.id === item.id ? { ...i, quantity: parseInt(e.target.value) || 0 } : i
-                    ))}
-                    style={{ width: 35, padding: '1px 2px', fontSize: 11 }}
-                  />
-                  <button className="btn-icon" onClick={() => update('inventory', storage.inventory.filter((i) => i.id !== item.id))}>🗑</button>
+          {storage.inventory.map((item) => {
+            const unitWeight = item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
+            const isExpanded = expandedItemId === item.id;
+            return (
+              <div key={item.id} style={{ marginBottom: 4 }}>
+                <div className="inventory-row">
+                  <button
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, fontSize: 12, color: 'var(--color-text)' }}
+                    onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                  >
+                    {item.name}
+                  </button>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{item.category}</span>
+                  <span style={{ fontSize: 11 }}>{(unitWeight * item.quantity).toFixed(1)}u</span>
+                  {canAccess ? (
+                    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        min={0}
+                        onChange={(e) => update('inventory', storage.inventory.map((i) =>
+                          i.id === item.id ? { ...i, quantity: parseInt(e.target.value) || 0 } : i
+                        ))}
+                        style={{ width: 35, padding: '1px 2px', fontSize: 11 }}
+                      />
+                      {isGM && (
+                        <button className="btn-icon" onClick={() => setEditingItem(item)} title="Edit">✏️</button>
+                      )}
+                      <button className="btn-icon" onClick={() => update('inventory', storage.inventory.filter((i) => i.id !== item.id))}>🗑</button>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12 }}>×{item.quantity}</span>
+                  )}
                 </div>
-              ) : (
-                <span style={{ fontSize: 12 }}>×{item.quantity}</span>
-              )}
-            </div>
-          ))}
+                {isExpanded && (
+                  <div style={{
+                    background: 'var(--color-bg)',
+                    border: '1px solid var(--color-border-light)',
+                    borderRadius: 4,
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    color: 'var(--color-text-muted)',
+                    marginTop: 2,
+                  }}>
+                    {item.description && <div style={{ marginBottom: 4, color: 'var(--color-text)' }}>{item.description}</div>}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+                      {item.damage && <div><strong>Damage:</strong> {item.damage}</div>}
+                      {item.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{item.acBonus}</div>}
+                      {item.maxCharges !== undefined && <div><strong>Charges:</strong> {item.currentCharges ?? 0}/{item.maxCharges}</div>}
+                    </div>
+                    {item.properties && <div style={{ marginTop: 4 }}><strong>Properties:</strong> {item.properties}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {canAccess && (
-            <button className="btn btn-sm btn-secondary" onClick={() => {
-              const name = prompt('Item name:');
-              if (name) {
-                update('inventory', [...storage.inventory, { id: generateId(), name, category: 'Other', quantity: 1, equipped: null }]);
-              }
-            }}>+ Add Item</button>
+            <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Item name"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                style={{ flex: 1, minWidth: 80 }}
+              />
+              <select value={newItemCategory}
+                onChange={(e) => setNewItemCategory(e.target.value as ItemCategory)}
+                style={{ flex: 1, minWidth: 80 }}>
+                {ITEM_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button className="btn btn-sm btn-secondary" onClick={addItem}>+ Add</button>
+            </div>
           )}
         </>
+      )}
+
+      {/* Claim button */}
+      {storage.claimable && !isGM && (
+        <div style={{ textAlign: 'center', padding: '8px 0', marginTop: 8 }}>
+          {storage.claimedBy ? (
+            <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
+              ✅ Claimed {storage.claimedBy === playerId ? '(by you)' : '(by another player)'}
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => playerId && onUpdate({ ...storage, claimedBy: playerId })}
+            >
+              🏷 Claim
+            </button>
+          )}
+        </div>
+      )}
+
+      {editingItem && (
+        <ItemEditForm
+          item={editingItem}
+          onChange={(updated) => {
+            update('inventory', storage.inventory.map((i) => i.id === updated.id ? updated : i));
+            setEditingItem(null);
+          }}
+          onClose={() => setEditingItem(null)}
+        />
       )}
     </div>
   );

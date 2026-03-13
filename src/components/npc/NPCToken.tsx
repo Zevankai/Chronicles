@@ -12,9 +12,10 @@ interface NPCTokenProps {
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
+  playerId?: string | null;
 }
 
-export function NPCToken({ npc, onUpdate, isGM, calendar, onCalendarChange, onTokenTypeChange }: NPCTokenProps) {
+export function NPCToken({ npc, onUpdate, isGM, calendar, onCalendarChange, onTokenTypeChange, playerId }: NPCTokenProps) {
   const update = <K extends keyof NPCData>(key: K, value: NPCData[K]) =>
     onUpdate({ ...npc, [key]: value });
 
@@ -224,6 +225,23 @@ export function NPCToken({ npc, onUpdate, isGM, calendar, onCalendarChange, onTo
         </div>
       </div>
       <TabPanel tabs={tabs} defaultTab="profile">{panels}</TabPanel>
+      {/* Claim button */}
+      {npc.claimable && !isGM && (
+        <div style={{ textAlign: 'center', padding: '8px 0', marginTop: 4 }}>
+          {npc.claimedBy ? (
+            <div className="badge badge-success" style={{ padding: '6px 12px', display: 'inline-block', fontSize: 12 }}>
+              ✅ Claimed {npc.claimedBy === playerId ? '(by you)' : '(by another player)'}
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => playerId && onUpdate({ ...npc, claimedBy: playerId })}
+            >
+              🏷 Claim
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
