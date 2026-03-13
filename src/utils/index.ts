@@ -92,9 +92,30 @@ export function cycleProficiency(current: string): string {
 
 export function getInventoryWeight(inventory: Item[]): number {
   return inventory.reduce((total, item) => {
+    // Equipped items do not add to encumbrance
+    if (item.equipped != null) return total;
     const unitWeight = item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
     return total + unitWeight * item.quantity;
   }, 0);
+}
+
+export function getPlayerCapacity(player: PlayerData): number {
+  const DEFAULT_CAPACITY = 15;
+  const equippedBag = player.inventory.find(
+    (i) => i.category === 'Bag' && i.equipped === 'Bag'
+  );
+  return equippedBag?.unitCapacity != null
+    ? equippedBag.unitCapacity + DEFAULT_CAPACITY
+    : DEFAULT_CAPACITY;
+}
+
+function parseBodyWeight(player: PlayerData): number {
+  // Try to parse weight from character tab string (e.g. "180 lbs" -> 180)
+  if (player.weight) {
+    const parsed = parseFloat(player.weight);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return player.bodyWeight;
 }
 
 export function getCombatEncumberedThreshold(bodyWeight: number, strMod: number): number {
@@ -110,8 +131,9 @@ export type EncumbranceStatus = 'normal' | 'combat' | 'over';
 export function getEncumbranceStatus(player: PlayerData): EncumbranceStatus {
   const weight = getInventoryWeight(player.inventory);
   const strMod = getModifier(player.attributes.STR);
-  if (weight >= getOverEncumberedThreshold(player.bodyWeight, strMod)) return 'over';
-  if (weight >= getCombatEncumberedThreshold(player.bodyWeight, strMod)) return 'combat';
+  const bodyWeight = parseBodyWeight(player);
+  if (weight >= getOverEncumberedThreshold(bodyWeight, strMod)) return 'over';
+  if (weight >= getCombatEncumberedThreshold(bodyWeight, strMod)) return 'combat';
   return 'normal';
 }
 
@@ -226,7 +248,8 @@ export function generateWeather(biome: Biome, calendar: CalendarConfig): Weather
   const seasonMod = SEASON_TEMP_MODS[season] || 0;
   const variance = Math.floor(Math.random() * 10) - 5;
   const hourMod = calendar.currentHour >= 12 && calendar.currentHour <= 16 ? 3 : calendar.currentHour < 6 || calendar.currentHour > 20 ? -5 : 0;
-  const temperature = baseTemp + seasonMod + variance + hourMod;
+  const temperatureC = baseTemp + seasonMod + variance + hourMod;
+  const temperature = Math.round((temperatureC * 9) / 5 + 32);
 
   const humidity = Math.floor(Math.random() * 60) + 20;
   // Wind speed in MPH (5-44 mph range)
@@ -237,7 +260,7 @@ export function generateWeather(biome: Biome, calendar: CalendarConfig): Weather
     temperature,
     humidity,
     windSpeed,
-    description: `${weatherType}, ${temperature}°C, winds ${windSpeed} mph`,
+    description: `${weatherType}, ${temperature}°F, winds ${windSpeed} mph`,
     generatedAt: new Date().toISOString(),
   };
 }

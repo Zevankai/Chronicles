@@ -2,7 +2,7 @@ import React from 'react';
 import { PlayerData } from '../../types';
 import { StatBox } from '../common/StatBox';
 import { ConditionGrid } from '../common/ConditionBadge';
-import { getEncumbranceStatus, getInventoryWeight } from '../../utils';
+import { getEncumbranceStatus, getInventoryWeight, getPlayerCapacity } from '../../utils';
 import { ATTRIBUTES } from '../../constants';
 
 interface HomeTabProps {
@@ -21,6 +21,7 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
   const canEdit = isOwner || isGM;
   const enc = getEncumbranceStatus(player);
   const totalWeight = getInventoryWeight(player.inventory);
+  const bagCapacity = getPlayerCapacity(player);
 
   const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>
     onChange({ ...player, [key]: value });
@@ -123,7 +124,7 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
           {enc === 'over'
             ? '⚠ Over Encumbered — Disadvantage on attack rolls, initiative, STR & DEX rolls, half speed'
             : '⚡ Combat Encumbered — Disadvantage on attack rolls and initiative'}
-          {' '}({totalWeight.toFixed(1)} units)
+          {' '}({totalWeight.toFixed(1)}/{bagCapacity}u)
         </div>
       )}
 

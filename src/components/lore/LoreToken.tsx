@@ -25,6 +25,7 @@ const CATEGORY_ICONS: Record<LoreCategory, string> = {
 };
 
 export function LoreToken({ lore, onUpdate, isGM, calendar, onCalendarChange, onTokenTypeChange, playerId }: LoreTokenProps) {
+  const [extendedView, setExtendedView] = useState(false);
   const update = <K extends keyof LoreData>(key: K, value: LoreData[K]) =>
     onUpdate({ ...lore, [key]: value });
 
@@ -134,12 +135,24 @@ export function LoreToken({ lore, onUpdate, isGM, calendar, onCalendarChange, on
         <div className="token-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
           {CATEGORY_ICONS[lore.category]}
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="token-name">{lore.name}</div>
           <div className="token-subtitle">{lore.category}</div>
           {!lore.revealed && <div className="token-subtitle">🔒 Hidden from players</div>}
         </div>
+        <button className="btn-icon" title="Extended View" onClick={() => setExtendedView(true)} style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start' }}>⛶</button>
       </div>
+      {extendedView && (
+        <div className="modal-overlay" onClick={() => setExtendedView(false)}>
+          <div className="modal" style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">{CATEGORY_ICONS[lore.category]} {lore.name} — Extended View</span>
+              <button className="btn-icon" onClick={() => setExtendedView(false)}>✕</button>
+            </div>
+            <TabPanel tabs={tabs} defaultTab="content">{panels}</TabPanel>
+          </div>
+        </div>
+      )}
       <TabPanel tabs={tabs} defaultTab="content">{panels}</TabPanel>
     </div>
   );

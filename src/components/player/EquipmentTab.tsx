@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlayerData, Item, ItemCategory, EquipmentSlot } from '../../types';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
-import { getInventoryWeight, getEncumbranceStatus, getCombatEncumberedThreshold, getOverEncumberedThreshold, generateId, getModifier } from '../../utils';
+import { getInventoryWeight, getEncumbranceStatus, getCombatEncumberedThreshold, getOverEncumberedThreshold, getPlayerCapacity, generateId, getModifier } from '../../utils';
 
 interface EquipmentTabProps {
   player: PlayerData;
@@ -25,6 +25,7 @@ const EQUIPMENT_SLOTS: { slot: EquipmentSlot; label: string; icon: string }[] = 
   { slot: 'Jewelry3', label: 'Jewelry 3', icon: '💍' },
   { slot: 'Clothing1', label: 'Clothing 1', icon: '👘' },
   { slot: 'Clothing2', label: 'Clothing 2', icon: '👘' },
+  { slot: 'Misc', label: 'Misc', icon: '🔮' },
 ];
 
 // Maps item categories to their valid equipment slots
@@ -44,6 +45,12 @@ const CATEGORY_TO_SLOTS: Partial<Record<ItemCategory, EquipmentSlot[]>> = {
   'Clothing': ['Clothing1', 'Clothing2'],
 };
 
+// Any item can be equipped to Misc
+function getAvailableSlots(item: Item): EquipmentSlot[] {
+  const specific = CATEGORY_TO_SLOTS[item.category] || [];
+  return [...specific, 'Misc'];
+}
+
 function getItemWeight(item: Item): number {
   return item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
 }
@@ -54,9 +61,8 @@ function getCoinWeight(coins: { cp: number; sp: number; gp: number; pp: number }
 
 function getInventoryWeightWithCoins(player: PlayerData): number {
   const itemWeight = player.inventory.reduce((total, item) => {
-    // Aux bag items don't count toward encumbrance
-    const auxSlots: EquipmentSlot[] = ['Auxiliary1', 'Auxiliary2'];
-    if (item.equipped && auxSlots.includes(item.equipped)) return total;
+    // Equipped items don't count toward encumbrance
+    if (item.equipped != null) return total;
     return total + getItemWeight(item) * item.quantity;
   }, 0);
   return itemWeight + getCoinWeight(player.coins);
@@ -165,6 +171,34 @@ function ItemEditForm({
                 <label className="field-label">Item Capacity</label>
                 <input type="number" value={draft.itemMaxCapacity ?? ''} placeholder="20" min={1}
                   onChange={(e) => update('itemMaxCapacity', e.target.value ? parseInt(e.target.value) : undefined)} />
+              </div>
+              <div>
+                <label className="field-label">Unit Capacity</label>
+                <input type="number" value={draft.unitCapacity ?? ''} placeholder="—" min={1}
+                  onChange={(e) => update('unitCapacity', e.target.value ? parseInt(e.target.value) : undefined)} />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="field-label">Allowed Item Types (empty = all)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 120, overflowY: 'auto', border: '1px solid var(--color-border-light)', borderRadius: 4, padding: 4 }}>
+                  {ITEM_CATEGORIES.map((cat) => {
+                    const checked = (draft.allowedItemTypes || []).includes(cat);
+                    return (
+                      <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const current = draft.allowedItemTypes || [];
+                            update('allowedItemTypes', e.target.checked
+                              ? [...current, cat]
+                              : current.filter((c) => c !== cat));
+                          }}
+                        />
+                        {cat}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -319,6 +353,8 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [equipPickerItem, setEquipPickerItem] = useState<Item | null>(null);
+  const [overCapacityWarning, setOverCapacityWarning] = useState(false);
+  const [auxPickerItem, setAuxPickerItem] = useState<Item | null>(null);
 
   const totalWeight = getInventoryWeightWithCoins(player);
   const strMod = getModifier(player.attributes.STR);
@@ -326,13 +362,13 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   const overThreshold = getOverEncumberedThreshold(player.bodyWeight, strMod);
   const enc = getEncumbranceStatus(player);
   const isOverEncumbered = enc === 'over';
+  const bagCapacity = getPlayerCapacity(player);
 
   const hasAuxEquipped = player.inventory.some((i) =>
     i.equipped === 'Auxiliary1' || i.equipped === 'Auxiliary2'
   );
 
   const equippedBag = player.inventory.find((i) => i.equipped === 'Bag' && i.category === 'Bag');
-  const bagCapacity = equippedBag?.unitCapacity ?? 15;
 
   const removeItem = (id: string) => {
     onChange({ ...player, inventory: player.inventory.filter((i) => i.id !== id) });
@@ -351,27 +387,108 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
 
   const toggleEquip = (item: Item, slot: EquipmentSlot) => {
     const newEquipped = item.equipped === slot ? null : slot;
-    onChange({
-      ...player,
-      inventory: player.inventory.map((i) => i.id === item.id ? { ...i, equipped: newEquipped } : i),
-    });
+    let newInventory = player.inventory.map((i) => i.id === item.id ? { ...i, equipped: newEquipped } : i);
+
+    // Two-handed weapon: also manage SecondaryHand
+    if (item.category === 'Two-Handed Weapon') {
+      if (newEquipped === 'PrimaryHand') {
+        // Also mark SecondaryHand as occupied by this item's twin-slot
+        newInventory = newInventory.map((i) =>
+          i.id !== item.id && i.equipped === 'SecondaryHand' ? i : i
+        );
+      } else {
+        // Unequipping: nothing extra needed
+      }
+    }
+
+    // Check for over-capacity after unequipping a bag
+    const updatedPlayer = { ...player, inventory: newInventory };
+    if (item.category === 'Bag' && newEquipped === null) {
+      const newCapacity = getPlayerCapacity(updatedPlayer);
+      const newWeight = getInventoryWeightWithCoins(updatedPlayer);
+      if (newWeight > newCapacity) {
+        setOverCapacityWarning(true);
+      }
+    }
+
+    onChange(updatedPlayer);
   };
 
   const equipItem = (item: Item, slot: EquipmentSlot | null) => {
-    onChange({
-      ...player,
-      inventory: player.inventory.map((i) => i.id === item.id ? { ...i, equipped: slot } : i),
-    });
+    let newInventory = player.inventory.map((i) => i.id === item.id ? { ...i, equipped: slot } : i);
+
+    // Two-handed weapon: check and handle SecondaryHand
+    if (item.category === 'Two-Handed Weapon' && slot === 'PrimaryHand') {
+      const secondaryOccupant = player.inventory.find(
+        (i) => i.id !== item.id && i.equipped === 'SecondaryHand'
+      );
+      if (secondaryOccupant) {
+        alert(`Cannot equip two-handed weapon: ${secondaryOccupant.name} is in the Secondary Hand slot. Unequip it first.`);
+        return;
+      }
+    }
+
+    // Check for over-capacity after unequipping a bag
+    const updatedPlayer = { ...player, inventory: newInventory };
+    if (item.category === 'Bag' && slot === null) {
+      const newCapacity = getPlayerCapacity(updatedPlayer);
+      const newWeight = getInventoryWeightWithCoins(updatedPlayer);
+      if (newWeight > newCapacity) {
+        setOverCapacityWarning(true);
+      }
+    }
+
+    onChange(updatedPlayer);
   };
 
   const addItem = (item: Item) => {
-    // Check encumbrance before adding
+    // Check bag capacity before adding
     const newWeight = totalWeight + getItemWeight(item) * item.quantity;
-    if (newWeight > overThreshold) {
-      alert(`Cannot add item: total weight would be ${newWeight.toFixed(1)} units, exceeding the Over Encumbered limit (${overThreshold.toFixed(1)} units).`);
+    if (newWeight > bagCapacity) {
+      alert(`Cannot add item: bag is full (${totalWeight.toFixed(1)}/${bagCapacity} units). Equip a larger bag or remove items.`);
       return;
     }
     onChange({ ...player, inventory: [...player.inventory, item] });
+  };
+
+  // Transfer item from bag inventory to an auxiliary slot
+  const transferToAux = (item: Item, auxSlot: 'Auxiliary1' | 'Auxiliary2') => {
+    const auxItem = player.inventory.find((i) => i.equipped === auxSlot && i.category === 'Auxiliary');
+    if (!auxItem) {
+      alert(`No auxiliary equipped in ${auxSlot}.`);
+      return;
+    }
+    // Check allowed item types
+    if (auxItem.allowedItemTypes && auxItem.allowedItemTypes.length > 0) {
+      if (!auxItem.allowedItemTypes.includes(item.category)) {
+        alert(`This auxiliary only accepts: ${auxItem.allowedItemTypes.join(', ')}`);
+        return;
+      }
+    }
+    // Check item capacity
+    const currentAuxItems = player.inventory.filter((i) => i.equipped === auxSlot && i.id !== auxItem.id);
+    if (auxItem.itemMaxCapacity != null && currentAuxItems.length >= auxItem.itemMaxCapacity) {
+      alert(`Auxiliary is full (${currentAuxItems.length}/${auxItem.itemMaxCapacity} items).`);
+      return;
+    }
+    onChange({
+      ...player,
+      inventory: player.inventory.map((i) => i.id === item.id ? { ...i, equipped: auxSlot } : i),
+    });
+    setAuxPickerItem(null);
+  };
+
+  // Transfer item from auxiliary back to main bag
+  const transferToBag = (item: Item) => {
+    const newWeight = totalWeight + getItemWeight(item) * item.quantity;
+    if (newWeight > bagCapacity) {
+      alert(`Cannot transfer: bag is full (${totalWeight.toFixed(1)}/${bagCapacity} units).`);
+      return;
+    }
+    onChange({
+      ...player,
+      inventory: player.inventory.map((i) => i.id === item.id ? { ...i, equipped: null } : i),
+    });
   };
 
   // Bag inventory = items not in aux slots
@@ -379,12 +496,16 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
   // Quick inventory = items in aux slots
   const quickItems = player.inventory.filter((i) => i.equipped && ['Auxiliary1', 'Auxiliary2'].includes(i.equipped));
 
-  const renderInventoryList = (items: Item[], showEquipBtn = false) => (
+  const equippedAuxSlots = (['Auxiliary1', 'Auxiliary2'] as const).filter((slot) =>
+    player.inventory.some((i) => i.equipped === slot && i.category === 'Auxiliary')
+  );
+
+  const renderInventoryList = (items: Item[], showEquipBtn = false, isAuxView = false) => (
     <div>
       {items.map((item) => {
         const unitWeight = getItemWeight(item);
         const isExpanded = expandedItemId === item.id;
-        const validSlots = CATEGORY_TO_SLOTS[item.category] || [];
+        const validSlots = getAvailableSlots(item);
 
         return (
           <div key={item.id} style={{ marginBottom: 4 }}>
@@ -434,6 +555,32 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                       {item.equipped ? '✅' : '⚔️'}
                     </button>
                   )}
+                  {!isAuxView && equippedAuxSlots.length > 0 && (
+                    <button
+                      className="btn-icon"
+                      onClick={() => {
+                        if (equippedAuxSlots.length === 1) {
+                          transferToAux(item, equippedAuxSlots[0]);
+                        } else {
+                          setAuxPickerItem(item);
+                        }
+                      }}
+                      title="Transfer to Auxiliary"
+                      style={{ fontSize: 11 }}
+                    >
+                      ⚡
+                    </button>
+                  )}
+                  {isAuxView && (
+                    <button
+                      className="btn-icon"
+                      onClick={() => transferToBag(item)}
+                      title="Transfer to Bag"
+                      style={{ fontSize: 11 }}
+                    >
+                      🎒
+                    </button>
+                  )}
                   <button className="btn-icon" onClick={() => setEditingItem(item)} title="Edit">✏️</button>
                   <button className="btn-icon" onClick={() => removeItem(item.id)} title="Remove">🗑</button>
                 </div>
@@ -461,6 +608,9 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                   {item.requiresAttunement && <div><strong>Attunement:</strong> {item.attuned ? 'Attuned' : 'Required'}</div>}
                 </div>
                 {item.properties && <div style={{ marginTop: 4 }}><strong>Properties:</strong> {item.properties}</div>}
+                {item.allowedItemTypes && item.allowedItemTypes.length > 0 && (
+                  <div style={{ marginTop: 4 }}><strong>Accepts:</strong> {item.allowedItemTypes.join(', ')}</div>
+                )}
               </div>
             )}
           </div>
@@ -474,19 +624,36 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Over-capacity warning */}
+      {overCapacityWarning && (
+        <div className="badge badge-danger" style={{ display: 'block', padding: '8px 12px', fontSize: 12 }}>
+          ⚠ You are over capacity! Please correct your inventory.
+          <button
+            className="btn-icon"
+            onClick={() => setOverCapacityWarning(false)}
+            style={{ float: 'right', fontSize: 12, color: 'inherit' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Encumbrance */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
           <span className="field-label">Encumbrance</span>
           <span className={`text-${enc === 'over' ? 'danger' : enc === 'combat' ? 'warning' : 'success'}`}>
-            {totalWeight.toFixed(1)}u (Combat: {combatThreshold.toFixed(1)} / Over: {overThreshold.toFixed(1)})
+            {totalWeight.toFixed(1)}u / {bagCapacity}u bag
           </span>
         </div>
         <div className="encumbrance-bar">
           <div
             className={`encumbrance-fill ${enc}`}
-            style={{ width: `${Math.min(100, (totalWeight / overThreshold) * 100)}%` }}
+            style={{ width: `${Math.min(100, (totalWeight / bagCapacity) * 100)}%` }}
           />
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+          Combat encumbered ≥{combatThreshold.toFixed(1)}u · Over encumbered ≥{overThreshold.toFixed(1)}u
         </div>
         {enc !== 'normal' && (
           <div className={`text-${enc === 'over' ? 'danger' : 'warning'}`} style={{ fontSize: 11, marginTop: 2 }}>
@@ -565,18 +732,18 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
               Bag ({bagItems.length} items)
             </div>
             <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-              {equippedBag ? `${equippedBag.name}` : 'no bag'}
+              {equippedBag ? `${equippedBag.name}` : 'no bag'} · {bagCapacity}u cap
             </span>
           </div>
-          {renderInventoryList(bagItems, true)}
+          {renderInventoryList(bagItems, true, false)}
           {canEdit && (
             <>
-              {isOverEncumbered && (
+              {totalWeight >= bagCapacity && (
                 <div className="badge badge-danger" style={{ display: 'block', textAlign: 'center', padding: '4px 8px', marginBottom: 4, fontSize: 11 }}>
-                  ⚠ Over Encumbered — cannot add items
+                  🎒 Bag full — cannot add items
                 </div>
               )}
-              <AddItemForm onAdd={addItem} disabled={isOverEncumbered} />
+              <AddItemForm onAdd={addItem} disabled={totalWeight >= bagCapacity} />
             </>
           )}
         </div>
@@ -586,7 +753,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
       {subTab === 'quick' && (
         <div>
           <div className="section-header">Quick Access (Auxiliary Bags)</div>
-          {renderInventoryList(quickItems, false)}
+          {renderInventoryList(quickItems, false, true)}
           {canEdit && <AddItemForm onAdd={(item) => addItem({ ...item, equipped: 'Auxiliary1' })} />}
         </div>
       )}
@@ -607,11 +774,34 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
       {equipPickerItem && (
         <EquipSlotPicker
           item={equipPickerItem}
-          availableSlots={CATEGORY_TO_SLOTS[equipPickerItem.category] || []}
+          availableSlots={getAvailableSlots(equipPickerItem)}
           inventory={player.inventory}
           onEquip={(slot) => equipItem(equipPickerItem, slot)}
           onClose={() => setEquipPickerItem(null)}
         />
+      )}
+
+      {/* Aux picker for transfer */}
+      {auxPickerItem && (
+        <div className="modal-overlay" onClick={() => setAuxPickerItem(null)}>
+          <div className="modal" style={{ maxWidth: 260 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Transfer to Auxiliary</span>
+              <button className="btn-icon" onClick={() => setAuxPickerItem(null)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {equippedAuxSlots.map((slot) => {
+                const auxItem = player.inventory.find((i) => i.equipped === slot && i.category === 'Auxiliary');
+                return (
+                  <button key={slot} className="btn btn-secondary"
+                    onClick={() => transferToAux(auxPickerItem, slot)}>
+                    ⚡ {auxItem?.name || slot}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

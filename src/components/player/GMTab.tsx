@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { CalendarConfig, TokenType } from '../../types';
+import { CalendarConfig, TokenType, AnyTokenData } from '../../types';
+import { TOKEN_NAMESPACE } from '../../constants';
 
 interface GMTabProps {
   tokenType: string;
@@ -11,6 +12,7 @@ interface GMTabProps {
   onCalendarChange?: (cal: CalendarConfig) => void;
   isGM: boolean;
   extraContent?: React.ReactNode;
+  tokenData?: AnyTokenData | null;
 }
 
 const TOKEN_TYPES: TokenType[] = ['player', 'monster', 'companion', 'storage', 'lore', 'npc', 'merchant'];
@@ -25,6 +27,7 @@ export function GMTab({
   onCalendarChange,
   isGM,
   extraContent,
+  tokenData,
 }: GMTabProps) {
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
 
@@ -117,6 +120,40 @@ export function GMTab({
       {/* Extra content (player-specific GM fields) */}
       {extraContent}
 
+      {/* Token Metadata Storage Usage */}
+      {tokenData && (
+        <div>
+          <div className="section-header">Token Storage</div>
+          {(() => {
+            const jsonStr = JSON.stringify({ [TOKEN_NAMESPACE]: tokenData });
+            const byteSize = new TextEncoder().encode(jsonStr).length;
+            const maxBytes = 8192; // OBR metadata limit per item
+            const pct = Math.min(100, (byteSize / maxBytes) * 100);
+            return (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Metadata size</span>
+                  <span className={pct > 90 ? 'text-danger' : pct > 70 ? 'text-warning' : ''}>
+                    {byteSize.toLocaleString()} / {maxBytes.toLocaleString()} bytes ({pct.toFixed(1)}%)
+                  </span>
+                </div>
+                <div className="encumbrance-bar">
+                  <div
+                    className={`encumbrance-fill ${pct >= 90 ? 'over' : pct >= 70 ? 'combat' : 'normal'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                {pct > 70 && (
+                  <div style={{ fontSize: 10, color: pct > 90 ? 'var(--color-danger)' : 'var(--color-warning)', marginTop: 2 }}>
+                    {pct > 90 ? '⚠ Nearing OBR metadata limit — consider trimming data' : '⚡ Token data is large'}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Calendar Settings */}
       {calendar && onCalendarChange && (
         <div>
@@ -132,15 +169,26 @@ export function GMTab({
 
           {showCalendarSettings && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-              {/* Year suffix */}
-              <div>
-                <label className="field-label">Year Suffix</label>
-                <input
-                  type="text"
-                  value={calendar.yearSuffix}
-                  onChange={(e) => onCalendarChange({ ...calendar, yearSuffix: e.target.value })}
-                  placeholder="e.g. A.S.C."
-                />
+              {/* Current Year */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label className="field-label">Current Year</label>
+                  <input
+                    type="number"
+                    value={calendar.currentYear}
+                    onChange={(e) => onCalendarChange({ ...calendar, currentYear: parseInt(e.target.value) || calendar.currentYear })}
+                    placeholder="e.g. 1492"
+                  />
+                </div>
+                <div>
+                  <label className="field-label">Year Suffix</label>
+                  <input
+                    type="text"
+                    value={calendar.yearSuffix}
+                    onChange={(e) => onCalendarChange({ ...calendar, yearSuffix: e.target.value })}
+                    placeholder="e.g. A.S.C."
+                  />
+                </div>
               </div>
 
               {/* Days per week */}

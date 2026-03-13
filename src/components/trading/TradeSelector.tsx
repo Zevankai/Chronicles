@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import OBR from '@owlbear-rodeo/sdk';
-import { AnyTokenData, PlayerData, MonsterData, StorageData, CompanionData, MerchantData, RoomMetadata, Item, Coins } from '../../types';
+import { AnyTokenData, PlayerData, MonsterData, StorageData, CompanionData, MerchantData, RoomMetadata, Item, Coins, PendingMerchantTrade } from '../../types';
 import { TOKEN_NAMESPACE, ROOM_NAMESPACE } from '../../constants';
 import { TradeModal } from './TradeModal';
+import { generateId } from '../../utils';
 
 interface TradableToken {
   id: string;
@@ -146,6 +147,45 @@ export function TradeSelector({
     targetGives: { items: { item: Item; qty: number }[]; coins: Coins }
   ) => {
     if (!selectedTarget) return;
+
+    // Merchant trades require GM approval
+    if (selectedTarget.type === 'merchant') {
+      const merchant = selectedTarget.data as MerchantData;
+      const pendingTrade: PendingMerchantTrade = {
+        id: generateId(),
+        playerId,
+        playerName: currentData.name,
+        merchantId: selectedTarget.id,
+        merchantName: merchant.name,
+        playerGives: {
+          items: initiatorGives.items.map((x) => ({ item: x.item, quantity: x.qty })),
+          coins: initiatorGives.coins,
+        },
+        merchantGives: {
+          items: targetGives.items.map((x) => ({ item: x.item, quantity: x.qty })),
+          coins: targetGives.coins,
+        },
+        timestamp: Date.now(),
+      };
+
+      if (onRoomUpdate && roomData) {
+        const updatedRoom: RoomMetadata = {
+          ...roomData,
+          pendingMerchantTrades: [...(roomData.pendingMerchantTrades || []), pendingTrade],
+        };
+        onRoomUpdate(updatedRoom);
+        try {
+          await OBR.room.setMetadata({ [ROOM_NAMESPACE]: updatedRoom });
+        } catch (e) {
+          console.error('Failed to submit pending trade:', e);
+        }
+      }
+
+      setNotification('Trade submitted for GM approval!');
+      handleTradeClose();
+      onClose();
+      return;
+    }
 
     try {
       // Apply trade: remove items from current player, add target items

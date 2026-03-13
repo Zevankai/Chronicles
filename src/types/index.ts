@@ -44,7 +44,8 @@ export type EquipmentSlot =
   | 'PrimaryHand' | 'SecondaryHand'
   | 'HeadArmor' | 'PrimaryArmor' | 'Gauntlets' | 'Boots'
   | 'Jewelry1' | 'Jewelry2' | 'Jewelry3'
-  | 'Clothing1' | 'Clothing2';
+  | 'Clothing1' | 'Clothing2'
+  | 'Misc';
 
 // ============================================================
 // ITEM & COIN MODELS
@@ -507,7 +508,6 @@ export interface MerchantData {
   description: string;
   costInflation: number; // multiplier, default 1.0
   buybackRate: number; // fraction of value, default 0.5
-  buybackLimit: number; // max gp value
   inventory: Item[];
   coins: Coins;
   notes: string; // GM only
@@ -520,6 +520,17 @@ export interface MerchantData {
 // ROOM METADATA
 // ============================================================
 
+export interface PendingMerchantTrade {
+  id: string;
+  playerId: string;
+  playerName: string;
+  merchantId: string;
+  merchantName: string;
+  playerGives: { items: { item: Item; quantity: number }[]; coins: Coins };
+  merchantGives: { items: { item: Item; quantity: number }[]; coins: Coins };
+  timestamp: number;
+}
+
 export interface RoomMetadata {
   calendar: CalendarConfig;
   weather: WeatherData;
@@ -529,6 +540,7 @@ export interface RoomMetadata {
   spellRepository: Spell[];
   exhaustionConfig: ExhaustionLevel[];
   activeTrades?: Record<string, string>; // tokenId -> playerIdTrading
+  pendingMerchantTrades?: PendingMerchantTrade[];
   version: number;
 }
 
@@ -553,7 +565,7 @@ export interface TradeSession {
   targetOffer: TradeOffer;
   initiatorConfirmed: boolean;
   targetConfirmed: boolean;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'pending_approval';
   timestamp: number;
 }
 
