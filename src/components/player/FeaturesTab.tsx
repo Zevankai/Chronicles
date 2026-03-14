@@ -12,7 +12,13 @@ const EMPTY_FEATURE = {
   name: '',
   description: '',
   maxCharges: 1,
-  restType: 'short' as 'short' | 'long',
+  restType: 'short' as 'short' | 'long' | 'none',
+};
+
+const REST_TYPE_LABEL: Record<string, string> = {
+  short: '🌙 Short Rest',
+  long: '💤 Long Rest',
+  none: '— Manual',
 };
 
 export function FeaturesTab({ player, onChange, canEdit }: FeaturesTabProps) {
@@ -45,6 +51,10 @@ export function FeaturesTab({ player, onChange, canEdit }: FeaturesTabProps) {
 
   const removeFeature = (id: string) => {
     onChange({ ...player, features: features.filter((f) => f.id !== id) });
+  };
+
+  const togglePin = (feature: PlayerFeature) => {
+    updateFeature({ ...feature, pinned: !feature.pinned });
   };
 
   const toggleCharge = (feature: PlayerFeature, chargeIndex: number) => {
@@ -108,10 +118,11 @@ export function FeaturesTab({ player, onChange, canEdit }: FeaturesTabProps) {
                   <label className="field-label">Recharges On</label>
                   <select
                     value={draft.restType}
-                    onChange={(e) => updateDraft('restType', e.target.value as 'short' | 'long')}
+                    onChange={(e) => updateDraft('restType', e.target.value as 'short' | 'long' | 'none')}
                   >
                     <option value="short">Short Rest</option>
                     <option value="long">Long Rest</option>
+                    <option value="none">None (manual)</option>
                   </select>
                 </div>
               </div>
@@ -150,13 +161,16 @@ export function FeaturesTab({ player, onChange, canEdit }: FeaturesTabProps) {
           key={feature.id}
           style={{
             background: 'var(--color-bg)',
-            border: '1px solid var(--color-border-light)',
+            border: `1px solid ${feature.pinned ? 'var(--color-gold)' : 'var(--color-border-light)'}`,
             borderRadius: 6,
             padding: '8px 10px',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-            <div style={{ fontWeight: 'bold', fontSize: 13 }}>{feature.name}</div>
+            <div style={{ fontWeight: 'bold', fontSize: 13 }}>
+              {feature.pinned && <span style={{ color: 'var(--color-gold)', marginRight: 4 }}>📌</span>}
+              {feature.name}
+            </div>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0, marginLeft: 6 }}>
               <span style={{
                 fontSize: 10,
@@ -166,17 +180,27 @@ export function FeaturesTab({ player, onChange, canEdit }: FeaturesTabProps) {
                 borderRadius: 8,
                 whiteSpace: 'nowrap',
               }}>
-                {feature.restType === 'short' ? '🌙 Short Rest' : '💤 Long Rest'}
+                {REST_TYPE_LABEL[feature.restType] ?? '🌙 Short Rest'}
               </span>
               {canEdit && (
-                <button
-                  className="btn-icon"
-                  onClick={() => removeFeature(feature.id)}
-                  title="Delete feature"
-                  style={{ fontSize: 11 }}
-                >
-                  🗑
-                </button>
+                <>
+                  <button
+                    className="btn-icon"
+                    onClick={() => togglePin(feature)}
+                    title={feature.pinned ? 'Unpin from Home tab' : 'Pin to Home tab'}
+                    style={{ fontSize: 11 }}
+                  >
+                    {feature.pinned ? '📌' : '📍'}
+                  </button>
+                  <button
+                    className="btn-icon"
+                    onClick={() => removeFeature(feature.id)}
+                    title="Delete feature"
+                    style={{ fontSize: 11 }}
+                  >
+                    🗑
+                  </button>
+                </>
               )}
             </div>
           </div>

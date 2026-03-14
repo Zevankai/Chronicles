@@ -73,6 +73,7 @@ export const ITEM_CATEGORY_WEIGHTS: Record<ItemCategory, number> = {
   Literature: 1,
   Camp: 3,
   Auxiliary: 2,
+  'Animal Auxiliary': 3,
   Bag: 3,
   Helmet: 2,
   Greaves: 2,
@@ -371,6 +372,24 @@ export const DEFAULT_TRADE_RANGE = 5; // squares
 export const DEFAULT_AC = 10;
 export const DEFAULT_PROFICIENCY_BONUS = 2;
 export const DEFAULT_SPEED = 30;
+
+// ============================================================
+// COMPANION SIZE CAPACITIES
+// ============================================================
+
+export const COMPANION_SIZE_CAPACITY: Record<string, number> = {
+  tiny: 2,
+  small: 6,
+  medium: 60,
+  large: 500,
+};
+
+export const COMPANION_SIZE_MAX_ANIMAL_AUX: Record<string, number> = {
+  tiny: 0,
+  small: 0,
+  medium: 2,
+  large: 4,
+};
 
 // ============================================================
 // SPELLCASTING CONSTANTS

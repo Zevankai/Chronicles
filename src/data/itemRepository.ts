@@ -151,7 +151,7 @@ export const ITEM_REPOSITORY: ItemRepositoryEntry[] = [
   { name: 'Pot, iron', valueText: '2 gp', weight: 10, itemType: 'Adventuring Gear', category: 'Other', properties: '' },
   { name: 'Potion of Healing', valueText: '50 gp', weight: 0.5, itemType: 'Adventuring Gear', category: 'Consumable', description: 'Regain 2d4+2 hit points when you drink this potion.', properties: '' },
   { name: 'Pouch', valueText: '5 sp', weight: 1, itemType: 'Adventuring Gear', category: 'Bag', properties: '' },
-  { name: 'Quiver', valueText: '1 gp', weight: 1, itemType: 'Adventuring Gear', category: 'Other', properties: '' },
+  { name: 'Quiver', valueText: '1 gp', weight: 1, itemType: 'Adventuring Gear', category: 'Auxiliary', properties: '' },
   { name: 'Ram, portable', valueText: '4 gp', weight: 35, itemType: 'Adventuring Gear', category: 'Tool', properties: '' },
   { name: 'Rations (1 day)', valueText: '5 sp', weight: 2, itemType: 'Adventuring Gear', category: 'Food', properties: '' },
   { name: 'Rope, hempen (50 feet)', valueText: '1 gp', weight: 10, itemType: 'Adventuring Gear', category: 'Other', properties: '' },
@@ -423,6 +423,14 @@ export const ITEM_REPOSITORY: ItemRepositoryEntry[] = [
   { name: 'Signal Arrow', valueText: '3 sp', weight: 0.1, itemType: 'Homebrew Arrows', category: 'Ammo', properties: 'Emits bright colored light and whistle sound on impact' },
   { name: 'Hunting Arrow', valueText: '1 sp', weight: 0.1, itemType: 'Homebrew Arrows', category: 'Ammo', properties: '+1d4 vs. beasts and monstrosities' },
   { name: 'Armor-Piercing Bolt', valueText: '4 sp', weight: 0.15, itemType: 'Homebrew Arrows', category: 'Ammo', properties: 'Ignores first 3 points of AC bonus from armor' },
+
+  // ────────────────────────────────────────────────
+  // ANIMAL AUXILIARY BAGS
+  // ────────────────────────────────────────────────
+  { name: 'Saddlebag (Animal)', valueText: '4 gp', weight: 2, unitCapacity: 30, itemType: 'Animal Auxiliary', category: 'Animal Auxiliary', properties: 'Straps to a medium or large animal companion. Carries up to 30 units.' },
+  { name: 'Pannier Basket', valueText: '2 gp', weight: 1, unitCapacity: 15, itemType: 'Animal Auxiliary', category: 'Animal Auxiliary', properties: 'Lightweight wicker baskets for a medium or large animal companion. Carries up to 15 units.' },
+  { name: 'Pack Frame (Animal)', valueText: '6 gp', weight: 3, unitCapacity: 50, itemType: 'Animal Auxiliary', category: 'Animal Auxiliary', properties: 'Reinforced frame pack for large animal companions. Carries up to 50 units.' },
+  { name: 'Cargo Bags (Large)', valueText: '10 gp', weight: 5, unitCapacity: 80, itemType: 'Animal Auxiliary', category: 'Animal Auxiliary', properties: 'Heavy-duty bags for large animal companions such as horses. Carries up to 80 units.' },
 ];
 
 export const ITEM_REPOSITORY_TYPES: string[] = Array.from(

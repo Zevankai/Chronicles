@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerData, Injury, InjurySeverity, BodyLocation, Scar, Project } from '../../types';
+import { PlayerData, Injury, InjurySeverity, BodyLocation, Scar, Project, Item } from '../../types';
 import { ConditionGrid } from '../common/ConditionBadge';
 import { ExhaustionBar } from '../common/ExhaustionBar';
 import { DEFAULT_EXHAUSTION_EFFECTS, LONG_REST_OPTIONS, SHORT_REST_OPTIONS, LONG_REST_PICK, SHORT_REST_PICK } from '../../constants';
@@ -121,8 +121,22 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
   const [showHpRecovery, setShowHpRecovery] = useState(false);
   const [hpRecoveryInput, setHpRecoveryInput] = useState(0);
   const [pendingHitDiceUsed, setPendingHitDiceUsed] = useState(0);
+  // Eat/food state
+  const [showFoodPicker, setShowFoodPicker] = useState(false);
+  const [selectedFoodId, setSelectedFoodId] = useState<string | null>(null);
 
   const exhaustionConfig = (player.exhaustionConfig?.length ? player.exhaustionConfig : DEFAULT_EXHAUSTION_EFFECTS);
+
+  const foodItems = (player.inventory ?? []).filter((i) => i.category === 'Food' && i.quantity > 0);
+  const hasFoodItems = foodItems.length > 0;
+
+  /** Returns inventory with the selected food item's quantity decremented (removed if 0). */
+  const consumeFoodItem = (inventory: Item[], foodId: string | null): Item[] => {
+    if (!foodId) return inventory;
+    return inventory
+      .map((i) => i.id === foodId ? { ...i, quantity: i.quantity - 1 } : i)
+      .filter((i) => i.quantity > 0);
+  };
 
   const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>
     onChange({ ...player, [key]: value });
@@ -215,11 +229,18 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       timestamp: Date.now(),
     };
 
-    let updates: Partial<typeof player> = {};
+    // Consume food item if Eat was selected
+    const updatedInventory = selectedOptions.includes('Eat')
+      ? consumeFoodItem([...player.inventory], selectedFoodId)
+      : [...player.inventory];
+
+    let updates: Partial<typeof player> = { inventory: updatedInventory };
     if (showRestModal === 'long') {
-      // Reset ALL features on long rest
-      const featuresReset = (player.features ?? []).map((f) => ({ ...f, currentCharges: f.maxCharges }));
+      const featuresReset = (player.features ?? []).map((f) =>
+        f.restType !== 'none' ? { ...f, currentCharges: f.maxCharges } : f
+      );
       updates = {
+        ...updates,
         currentHp: player.maxHp,
         exhaustionLevel: Math.max(0, player.exhaustionLevel - 1),
         spellSlots: Object.fromEntries(
@@ -232,11 +253,12 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       };
     } else {
       const healAmount = Math.floor(player.maxHp * 0.25);
-      // Reset short-rest features on short rest
+      // Reset short-rest features on short rest (except restType 'none')
       const featuresReset = (player.features ?? []).map((f) =>
         f.restType === 'short' ? { ...f, currentCharges: f.maxCharges } : f
       );
       updates = {
+        ...updates,
         currentHp: Math.min(player.maxHp, player.currentHp + healAmount),
         lastRestBonus: restBonus,
         lastShortRestBonus: restBonus,
@@ -268,6 +290,7 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
     setSelectedOptions([]);
     setSelectedOptionDesc(null);
     setShowWorkProjectPicker(false);
+    setSelectedFoodId(null);
 
     // If hit dice were used during short rest, prompt for HP recovery
     if (showRestModal === 'short' && hitDiceToUse > 0) {
@@ -295,9 +318,16 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       used: [],
       timestamp: Date.now(),
     };
-    // Reset ALL features on long rest
-    const featuresReset = (player.features ?? []).map((f) => ({ ...f, currentCharges: f.maxCharges }));
+    // Reset ALL features on long rest (except restType 'none')
+    const featuresReset = (player.features ?? []).map((f) =>
+      f.restType !== 'none' ? { ...f, currentCharges: f.maxCharges } : f
+    );
+    // Consume food item if Eat was selected
+    const updatedInventory = selectedOptions.includes('Eat')
+      ? consumeFoodItem([...player.inventory], selectedFoodId)
+      : [...player.inventory];
     const updates: Partial<PlayerData> = {
+      inventory: updatedInventory,
       currentHp: player.maxHp,
       exhaustionLevel: Math.max(0, player.exhaustionLevel - 1),
       spellSlots: Object.fromEntries(
@@ -327,9 +357,28 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
     setShowRestModal(null);
     setSelectedOptions([]);
     setSelectedOptionDesc(null);
+    setSelectedFoodId(null);
   };
 
   const toggleOption = (opt: string, maxPick: number) => {
+    if (opt === 'Eat') {
+      if (selectedOptions.includes('Eat')) {
+        // Deselect Eat — restore any previously consumed food
+        setSelectedOptions(selectedOptions.filter((x) => x !== 'Eat'));
+        setSelectedFoodId(null);
+        if (selectedOptionDesc === 'Eat') setSelectedOptionDesc(null);
+      } else if (!hasFoodItems) {
+        // No food items available
+        setSelectedOptionDesc('Eat');
+      } else if (selectedOptions.length < maxPick) {
+        // Open food picker
+        setShowFoodPicker(true);
+      } else {
+        // Already at max — just show description
+        setSelectedOptionDesc('Eat');
+      }
+      return;
+    }
     if (selectedOptions.includes(opt)) {
       setSelectedOptions(selectedOptions.filter((x) => x !== opt));
       if (selectedOptionDesc === opt) setSelectedOptionDesc(null);
@@ -340,6 +389,13 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       // Already at max — just show description
       setSelectedOptionDesc(opt);
     }
+  };
+
+  const confirmFoodSelection = (foodId: string) => {
+    setSelectedFoodId(foodId);
+    setSelectedOptions((prev) => [...prev, 'Eat']);
+    setSelectedOptionDesc('Eat');
+    setShowFoodPicker(false);
   };
 
   const activeInjuries = player.injuries.filter((i) => !i.healed);
@@ -606,14 +662,14 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
 
       {/* Rest Modal */}
       {showRestModal && (
-        <div className="modal-overlay" onClick={() => { setShowRestModal(null); setSelectedOptions([]); setSelectedOptionDesc(null); }}>
+        <div className="modal-overlay" onClick={() => { setShowRestModal(null); setSelectedOptions([]); setSelectedOptionDesc(null); setSelectedFoodId(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <span className="modal-title">
                 {showRestModal === 'long' ? '💤 Long Rest' : '🌙 Short Rest'}
                 {' '}— Choose {showRestModal === 'long' ? LONG_REST_PICK : SHORT_REST_PICK}
               </span>
-              <button className="btn-icon" onClick={() => { setShowRestModal(null); setSelectedOptions([]); setSelectedOptionDesc(null); }}>✕</button>
+              <button className="btn-icon" onClick={() => { setShowRestModal(null); setSelectedOptions([]); setSelectedOptionDesc(null); setSelectedFoodId(null); }}>✕</button>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
               {(showRestModal === 'long' ? LONG_REST_OPTIONS : SHORT_REST_OPTIONS).map((opt) => {
@@ -622,14 +678,26 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
                 const isDescShowing = selectedOptionDesc === opt;
                 const descriptions = showRestModal === 'long' ? LONG_REST_DESCRIPTIONS : SHORT_REST_DESCRIPTIONS;
                 const desc = descriptions[opt];
+                const isEat = opt === 'Eat';
+                const eatDisabled = isEat && !hasFoodItems && !selected;
+                const selectedFood = isEat && selected && selectedFoodId
+                  ? foodItems.find((i) => i.id === selectedFoodId)
+                  : null;
                 return (
                   <div key={opt} style={{ width: '100%' }}>
                     <button
                       className={`btn ${selected ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                      onClick={() => toggleOption(opt, maxPick)}
-                      style={{ width: '100%', textAlign: 'left' }}
+                      onClick={() => !eatDisabled && toggleOption(opt, maxPick)}
+                      style={{ width: '100%', textAlign: 'left', opacity: eatDisabled ? 0.5 : 1, cursor: eatDisabled ? 'not-allowed' : 'pointer' }}
+                      title={eatDisabled ? 'No food items in inventory' : undefined}
                     >
                       {selected ? '✓ ' : ''}{opt}
+                      {isEat && selected && selectedFood && (
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', marginLeft: 6 }}>
+                          ({selectedFood.name})
+                        </span>
+                      )}
+                      {eatDisabled && <span style={{ fontSize: 10, marginLeft: 6 }}>🚫 No food</span>}
                     </button>
                     {isDescShowing && desc && (
                       <div style={{
@@ -644,6 +712,11 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
                         <div style={{ color: 'var(--color-success)', marginTop: 4 }}>
                           <strong>Effect:</strong> {desc.effect}
                         </div>
+                        {isEat && !hasFoodItems && (
+                          <div style={{ color: 'var(--color-danger)', marginTop: 4 }}>
+                            ⚠ You have no food items in your inventory.
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -695,6 +768,37 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
               >
                 Rest ({selectedOptions.length}/{showRestModal === 'long' ? LONG_REST_PICK : SHORT_REST_PICK})
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Food item picker for Eat rest activity */}
+      {showFoodPicker && (
+        <div className="modal-overlay" onClick={() => setShowFoodPicker(false)}>
+          <div className="modal" style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🍖 Choose a Food Item to Eat</span>
+              <button className="btn-icon" onClick={() => setShowFoodPicker(false)}>✕</button>
+            </div>
+            <div style={{ marginBottom: 10, fontSize: 12, color: 'var(--color-text-muted)' }}>
+              Select a food item to consume during this rest:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {foodItems.map((item) => (
+                <button
+                  key={item.id}
+                  className="btn btn-secondary"
+                  style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  onClick={() => confirmFoodSelection(item.id)}
+                >
+                  <span>{item.name}</span>
+                  <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>×{item.quantity}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-secondary" onClick={() => setShowFoodPicker(false)}>Cancel</button>
             </div>
           </div>
         </div>

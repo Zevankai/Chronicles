@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import OBR from '@owlbear-rodeo/sdk';
-import { PlayerData, CalendarConfig, WeatherData } from '../../types';
+import { PlayerData, CalendarConfig, WeatherData, CalendarEvent } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { HPBar } from '../common/HPBar';
 import { HomeTab } from './HomeTab';
@@ -21,11 +21,14 @@ interface PlayerTokenProps {
   playerId?: string | null;
   calendar?: CalendarConfig;
   weather?: WeatherData;
+  calendarEvents?: CalendarEvent[];
   onCalendarChange?: (cal: CalendarConfig) => void;
   onWeatherChange?: (w: WeatherData) => void;
+  onEventsChange?: (events: CalendarEvent[]) => void;
   onTradeClick?: () => void;
   itemId?: string; // OBR item ID for this token
   tokenImageUrl?: string | null; // image URL from OBR item
+  allowPlayerItemCreation?: boolean;
 }
 
 export function PlayerToken({
@@ -36,11 +39,14 @@ export function PlayerToken({
   playerId,
   calendar,
   weather,
+  calendarEvents,
   onCalendarChange,
   onWeatherChange,
+  onEventsChange,
   onTradeClick,
   itemId,
   tokenImageUrl,
+  allowPlayerItemCreation,
 }: PlayerTokenProps) {
   const canEdit = isOwner || isGM;
   const [editingBanner, setEditingBanner] = useState(false);
@@ -81,6 +87,7 @@ export function PlayerToken({
     { id: 'spells', label: '✨ Spells' },
     { id: 'features', label: '⭐ Feats' },
     { id: 'calendar', label: '📅 Cal.' },
+    ...(onTradeClick && (isOwner || isGM) ? [{ id: 'trade', label: '💱 Trade' }] : []),
     { id: 'gm', label: '🔒 GM' },
   ];
 
@@ -336,22 +343,34 @@ export function PlayerToken({
           isOwner={isOwner}
           isGM={isGM}
           weather={weather?.description}
-          onTradeClick={onTradeClick}
           playerId={playerId}
         />
         <SkillsTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <ConditionsTab player={player} onChange={onUpdate} canEdit={canEdit} isGM={isGM} />
         <CharacterTab player={player} onChange={onUpdate} canEdit={canEdit} />
-        <EquipmentTab player={player} onChange={onUpdate} canEdit={canEdit} />
+        <EquipmentTab player={player} onChange={onUpdate} canEdit={canEdit} allowPlayerItemCreation={isGM ? true : allowPlayerItemCreation} />
         <SpellsTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <FeaturesTab player={player} onChange={onUpdate} canEdit={canEdit} />
         <CalendarTab
           calendar={cal}
           weather={weather}
+          events={calendarEvents}
           onCalendarChange={onCalendarChange}
           onWeatherChange={onWeatherChange}
+          onEventsChange={onEventsChange}
           isGM={isGM}
         />
+        {onTradeClick && (isOwner || isGM) ? (
+          <div style={{ padding: '12px 0' }}>
+            <div className="section-header">Trade</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 8 }}>
+              Open the trade window to exchange items with nearby tokens.
+            </div>
+            <button className="btn btn-primary" onClick={onTradeClick}>
+              💱 Open Trade Window
+            </button>
+          </div>
+        ) : null}
         <GMTab
           tokenType={player.tokenType}
           claimable={player.claimable}

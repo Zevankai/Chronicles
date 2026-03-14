@@ -15,6 +15,7 @@ interface MonsterTokenProps {
   onUpdate: (updated: MonsterData) => void;
   isGM: boolean;
   onLootClick?: () => void;
+  onPlayerTakeLoot?: (items: { item: Item; qty: number }[], coins: { cp: number; sp: number; gp: number; pp: number }) => void;
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
@@ -59,9 +60,17 @@ function ItemEditForm({
                 onChange={(e) => update('quantity', parseInt(e.target.value) || 0)} />
             </div>
             <div>
-              <label className="field-label">Value (CP)</label>
-              <input type="number" value={draft.value ?? ''} placeholder="0" min={0}
-                onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+              <label className="field-label">Value</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input type="number" value={draft.value ?? ''} placeholder="0" min={0} style={{ flex: 2 }}
+                  onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+                <select value={draft.valueCurrency ?? 'cp'} onChange={(e) => update('valueCurrency', e.target.value as 'cp' | 'sp' | 'gp' | 'pp')} style={{ flex: 1 }}>
+                  <option value="cp">cp</option>
+                  <option value="sp">sp</option>
+                  <option value="gp">gp</option>
+                  <option value="pp">pp</option>
+                </select>
+              </div>
             </div>
           </div>
           <div>
@@ -103,7 +112,7 @@ function ItemEditForm({
   );
 }
 
-export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, onCalendarChange, onTokenTypeChange, playerId }: MonsterTokenProps) {
+export function MonsterToken({ monster, onUpdate, isGM, onLootClick, onPlayerTakeLoot, calendar, onCalendarChange, onTokenTypeChange, playerId }: MonsterTokenProps) {
   const [showAddAbility, setShowAddAbility] = useState(false);
   const [showAddAction, setShowAddAction] = useState(false);
   const [newAbilityName, setNewAbilityName] = useState('');
@@ -115,6 +124,10 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
   const [newLootName, setNewLootName] = useState('');
   const [newLootCategory, setNewLootCategory] = useState<ItemCategory>('Other');
   const [extendedView, setExtendedView] = useState(false);
+  // Player loot selection state
+  const [selectedLoot, setSelectedLoot] = useState<{ item: Item; qty: number }[]>([]);
+  const [takingCoins, setTakingCoins] = useState({ cp: 0, sp: 0, gp: 0, pp: 0 });
+  const [showLootConfirm, setShowLootConfirm] = useState(false);
 
   const update = <K extends keyof MonsterData>(key: K, value: MonsterData[K]) =>
     onUpdate({ ...monster, [key]: value });
@@ -319,6 +332,41 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
     </div>
   );
 
+  const toggleLootItem = (item: Item) => {
+    const existing = selectedLoot.find((x) => x.item.id === item.id);
+    if (existing) {
+      setSelectedLoot(selectedLoot.filter((x) => x.item.id !== item.id));
+    } else {
+      setSelectedLoot([...selectedLoot, { item, qty: item.quantity }]);
+    }
+  };
+
+  const confirmPlayerLoot = () => {
+    if (!onPlayerTakeLoot) return;
+    onPlayerTakeLoot(selectedLoot, takingCoins);
+    // Remove taken items from monster loot
+    let updatedLoot = monster.loot.map((i) => {
+      const taken = selectedLoot.find((x) => x.item.id === i.id);
+      if (!taken) return i;
+      return { ...i, quantity: i.quantity - taken.qty };
+    }).filter((i) => i.quantity > 0);
+    const updatedCoins = {
+      cp: Math.max(0, monster.lootCoins.cp - takingCoins.cp),
+      sp: Math.max(0, monster.lootCoins.sp - takingCoins.sp),
+      gp: Math.max(0, monster.lootCoins.gp - takingCoins.gp),
+      pp: Math.max(0, monster.lootCoins.pp - takingCoins.pp),
+    };
+    onUpdate({ ...monster, loot: updatedLoot, lootCoins: updatedCoins });
+    setSelectedLoot([]);
+    setTakingCoins({ cp: 0, sp: 0, gp: 0, pp: 0 });
+    setShowLootConfirm(false);
+  };
+
+  const isLooting = !isGM && (monster.status === 'Dead' || monster.status === 'Vulnerable');
+
+  const clampCoinValue = (value: string, max: number): number =>
+    Math.min(max, Math.max(0, parseInt(value) || 0));
+
   const lootPanel = (
     <div>
       <div className="section-header">Loot</div>
@@ -327,17 +375,43 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
         onChange={(c) => update('lootCoins', c)}
         readonly={!isGM}
       />
+      {/* Player coin selection */}
+      {isLooting && (
+        <div style={{ marginTop: 4, marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>Coins to take:</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+            {(['cp', 'sp', 'gp', 'pp'] as const).map((denom) => (
+              <div key={denom} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{denom}</div>
+                <input
+                  type="number"
+                  value={takingCoins[denom]}
+                  min={0}
+                  max={monster.lootCoins[denom]}
+                  onChange={(e) => setTakingCoins({ ...takingCoins, [denom]: clampCoinValue(e.target.value, monster.lootCoins[denom]) })}
+                  style={{ width: '100%', textAlign: 'center', padding: '2px 2px', fontSize: 11 }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="divider" />
       {monster.loot.map((item) => {
         const unitWeight = item.weight ?? ITEM_CATEGORY_WEIGHTS[item.category] ?? 1;
         const isExpanded = expandedLootId === item.id;
+        const isSelected = selectedLoot.some((x) => x.item.id === item.id);
         return (
           <div key={item.id} style={{ marginBottom: 4 }}>
-            <div className="inventory-row">
+            <div className="inventory-row"
+              style={isLooting ? { background: isSelected ? 'rgba(var(--color-primary-rgb, 120, 80, 30), 0.15)' : undefined, borderRadius: 4, cursor: 'pointer' } : undefined}
+              onClick={isLooting ? () => toggleLootItem(item) : undefined}
+            >
               <button
                 style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, fontSize: 12, color: 'var(--color-text)' }}
-                onClick={() => setExpandedLootId(isExpanded ? null : item.id)}
+                onClick={(e) => { e.stopPropagation(); setExpandedLootId(isExpanded ? null : item.id); }}
               >
+                {isLooting && <span style={{ marginRight: 4 }}>{isSelected ? '✅' : '⬜'}</span>}
                 {item.name}
               </button>
               <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{item.category}</span>
@@ -363,7 +437,7 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
               }}>
                 {item.description && <div style={{ marginBottom: 4, color: 'var(--color-text)' }}>{item.description}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                  {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+                  {item.value !== undefined && <div><strong>Value:</strong> {item.value} {item.valueCurrency ?? 'cp'}</div>}
                   {item.damage && <div><strong>Damage:</strong> {item.damage}</div>}
                   {item.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{item.acBonus}</div>}
                 </div>
@@ -375,6 +449,19 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
       })}
       {monster.loot.length === 0 && (
         <div className="text-muted" style={{ fontSize: 12 }}>No loot</div>
+      )}
+      {/* Player loot confirmation */}
+      {isLooting && onPlayerTakeLoot && (
+        <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={selectedLoot.length === 0 && Object.values(takingCoins).every((v) => v === 0)}
+            onClick={() => setShowLootConfirm(true)}
+            style={{ flex: 1 }}
+          >
+            🎒 Take Selected ({selectedLoot.length} item{selectedLoot.length !== 1 ? 's' : ''})
+          </button>
+        </div>
       )}
       {isGM && (
         <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
@@ -423,6 +510,35 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
               🏷 Claim
             </button>
           )}
+        </div>
+      )}
+
+      {/* Loot confirm dialog */}
+      {showLootConfirm && (
+        <div className="modal-overlay" onClick={() => setShowLootConfirm(false)}>
+          <div className="modal" style={{ maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🎒 Confirm Loot</span>
+              <button className="btn-icon" onClick={() => setShowLootConfirm(false)}>✕</button>
+            </div>
+            <div style={{ marginBottom: 10, fontSize: 12 }}>
+              Take the following from <strong>{monster.name}</strong>?
+            </div>
+            {selectedLoot.map((x) => (
+              <div key={x.item.id} style={{ fontSize: 12, marginBottom: 2 }}>
+                • {x.item.name} ×{x.qty}
+              </div>
+            ))}
+            {Object.entries(takingCoins).filter(([, v]) => v > 0).map(([k, v]) => (
+              <div key={k} style={{ fontSize: 12, marginBottom: 2 }}>
+                • {v} {k.toUpperCase()}
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-secondary" onClick={() => setShowLootConfirm(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={confirmPlayerLoot}>✅ Confirm</button>
+            </div>
+          </div>
         </div>
       )}
 

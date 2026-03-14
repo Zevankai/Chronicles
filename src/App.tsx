@@ -298,6 +298,68 @@ export default function App() {
             </div>
           )}
 
+          {/* Incoming trade requests for this player */}
+          {!state.isGM && state.roomData && state.playerId && (() => {
+            const myTokenIds = Object.entries(state.allTokensMap)
+              .filter(([, td]) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId)
+              .map(([id]) => id);
+            const incoming = (state.roomData.playerTradeRequests || []).filter(
+              (r) => r.status === 'pending_approval' && myTokenIds.includes(r.targetTokenId)
+            );
+            if (incoming.length === 0) return null;
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <div className="section-header" style={{ color: 'var(--color-warning)' }}>💱 Incoming Trade Requests</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {incoming.map((req) => (
+                    <div key={req.id} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-warning)', borderRadius: 6, padding: 10, fontSize: 12 }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
+                        <span style={{ fontSize: 16 }}>💱</span> {req.initiatorName} wants to trade with {req.targetName}!
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="btn btn-sm btn-success"
+                          onClick={() => {
+                            const updated = {
+                              ...state.roomData!,
+                              playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
+                                r.id === req.id ? { ...r, status: 'active' as const } : r
+                              ),
+                            };
+                            handleRoomUpdate(updated);
+                          }}
+                        >
+                          ✅ Accept
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => {
+                            const updated = {
+                              ...state.roomData!,
+                              playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
+                                r.id === req.id ? { ...r, status: 'denied' as const } : r
+                              ),
+                            };
+                            handleRoomUpdate(updated);
+                            // Auto-clean denied requests after 10s
+                            setTimeout(() => {
+                              handleRoomUpdate({
+                                ...updated,
+                                playerTradeRequests: (updated.playerTradeRequests || []).filter((r) => r.id !== req.id),
+                              });
+                            }, 10000);
+                          }}
+                        >
+                          ❌ Deny
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {state.isGM && state.roomData && (state.roomData.pendingMerchantTrades || []).length > 0 && (
             <div style={{ marginBottom: 12 }}>
               <div className="section-header" style={{ color: 'var(--color-warning)' }}>⏳ Pending Merchant Trades</div>
@@ -407,6 +469,24 @@ export default function App() {
               >
                 🎲 Generate Weather
               </button>
+
+              {/* Player Item Creation Toggle */}
+              <div style={{ marginTop: 10 }}>
+                <div className="section-header">Player Permissions</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, marginTop: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={state.roomData.allowPlayerItemCreation !== false}
+                    onChange={(e) => handleRoomUpdate({ ...state.roomData!, allowPlayerItemCreation: e.target.checked })}
+                  />
+                  <span>
+                    <strong>Allow players to create/add items</strong>
+                    <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>
+                      When off, players can only get items from trading, looting, merchants, or storage.
+                    </div>
+                  </span>
+                </label>
+              </div>
             </div>
           )}
         </div>

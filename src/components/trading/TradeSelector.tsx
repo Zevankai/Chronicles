@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import OBR from '@owlbear-rodeo/sdk';
-import { AnyTokenData, PlayerData, MonsterData, StorageData, CompanionData, MerchantData, RoomMetadata, Item, Coins, PendingMerchantTrade } from '../../types';
+import { AnyTokenData, PlayerData, MonsterData, StorageData, CompanionData, MerchantData, RoomMetadata, Item, Coins, PendingMerchantTrade, PlayerTradeRequest } from '../../types';
 import { TOKEN_NAMESPACE, ROOM_NAMESPACE } from '../../constants';
 import { TradeModal } from './TradeModal';
 import { generateId } from '../../utils';
@@ -38,6 +38,7 @@ export function TradeSelector({
   const [tradableTokens, setTradableTokens] = useState<TradableToken[]>([]);
   const [selectedTarget, setSelectedTarget] = useState<TradableToken | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTradableTokens();
@@ -115,6 +116,36 @@ export function TradeSelector({
       return;
     }
 
+    // For player-to-player trades: send a trade request instead of opening immediately
+    if (token.type === 'player') {
+      const targetPlayer = token.data as PlayerData;
+      const targetPlayerId = targetPlayer.ownerId;
+      if (targetPlayerId) {
+        const requestId = generateId();
+        const request: PlayerTradeRequest = {
+          id: requestId,
+          initiatorTokenId: currentTokenId,
+          initiatorPlayerId: playerId,
+          initiatorName: currentData.name,
+          targetTokenId: token.id,
+          targetPlayerId,
+          targetName: token.name,
+          status: 'pending_approval',
+          timestamp: Date.now(),
+        };
+        if (onRoomUpdate && roomData) {
+          onRoomUpdate({
+            ...roomData,
+            playerTradeRequests: [...(roomData.playerTradeRequests || []), request],
+          });
+        }
+        setPendingRequestId(requestId);
+        setSelectedTarget(token);
+        setNotification('Trade request sent. Waiting for the other player to accept...');
+        return;
+      }
+    }
+
     // Lock the token for this player's trade session
     if (onRoomUpdate && roomData) {
       onRoomUpdate({
@@ -137,9 +168,15 @@ export function TradeSelector({
       const activeTrades = { ...(roomData.activeTrades || {}) };
       delete activeTrades[selectedTarget?.id || ''];
       delete activeTrades[currentTokenId];
-      onRoomUpdate({ ...roomData, activeTrades });
+      // Remove any pending trade request
+      const playerTradeRequests = (roomData.playerTradeRequests || []).filter(
+        (r) => r.id !== pendingRequestId
+      );
+      onRoomUpdate({ ...roomData, activeTrades, playerTradeRequests });
     }
     setSelectedTarget(null);
+    setPendingRequestId(null);
+    setNotification(null);
   };
 
   const handleTradeConfirm = async (
@@ -316,6 +353,56 @@ export function TradeSelector({
   };
 
   if (selectedTarget) {
+    // For player-to-player trades with a pending request: check if it was accepted
+    if (pendingRequestId) {
+      const request = (roomData?.playerTradeRequests || []).find((r) => r.id === pendingRequestId);
+      if (!request || request.status === 'pending_approval') {
+        // Still waiting
+        return (
+          <div className="modal-overlay" onClick={handleTradeClose}>
+            <div className="modal" style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">💱 Trade Request Sent</span>
+                <button className="btn-icon" onClick={handleTradeClose}>✕</button>
+              </div>
+              <div style={{ textAlign: 'center', padding: 16 }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+                <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+                  Waiting for <strong>{selectedTarget.name}</strong> to accept your trade request...
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button className="btn btn-secondary" onClick={handleTradeClose}>Cancel Request</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      if (request.status === 'denied') {
+        // Request was denied
+        return (
+          <div className="modal-overlay" onClick={handleTradeClose}>
+            <div className="modal" style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">💱 Trade Request Denied</span>
+                <button className="btn-icon" onClick={handleTradeClose}>✕</button>
+              </div>
+              <div style={{ textAlign: 'center', padding: 16 }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>❌</div>
+                <div style={{ fontSize: 13, color: 'var(--color-danger)' }}>
+                  <strong>{selectedTarget.name}</strong> declined your trade request.
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button className="btn btn-secondary" onClick={handleTradeClose}>Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      // status === 'active' — accepted, fall through to TradeModal
+    }
+
     const targetInventory = (() => {
       if ('loot' in selectedTarget.data) return (selectedTarget.data as MonsterData).loot;
       if ('inventory' in selectedTarget.data) return (selectedTarget.data as { inventory: Item[] }).inventory;
