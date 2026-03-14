@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MerchantData, Item, ItemCategory, CalendarConfig, Coins } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { GMTab } from '../player/GMTab';
 import { ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES, COINS_TO_CP } from '../../constants';
 import { generateId, coinsToCP, cpToCoins } from '../../utils';
@@ -267,6 +268,11 @@ export function MerchantToken({ merchant, onUpdate, isGM, onBuyItem, onSellItem,
           </select>
           <button className="btn btn-sm btn-secondary" onClick={addItem}>+ Add Item</button>
         </div>
+      )}
+      {isGM && (
+        <ItemRepositorySearch
+          onAddItem={(item) => update('inventory', [...merchant.inventory, { ...item, price: item.price ?? { cp: 0, sp: 0, gp: 10, pp: 0 } }])}
+        />
       )}
 
       {/* Claim button */}

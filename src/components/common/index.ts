@@ -6,3 +6,4 @@ export { ConditionGrid } from './ConditionBadge';
 export { ProficiencyIcon } from './ProficiencyIcon';
 export { CoinDisplay } from './CoinDisplay';
 export { ExhaustionBar } from './ExhaustionBar';
+export { ItemRepositorySearch } from './ItemRepositorySearch';

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StorageData, StorageType, CalendarConfig, Item, ItemCategory } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { GMTab } from '../player/GMTab';
 import { STORAGE_CAPACITIES, ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
@@ -234,6 +235,11 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
               </select>
               <button className="btn btn-sm btn-secondary" onClick={addItem}>+ Add</button>
             </div>
+          )}
+          {canAccess && (
+            <ItemRepositorySearch
+              onAddItem={(item) => update('inventory', [...storage.inventory, item])}
+            />
           )}
         </>
       )}
