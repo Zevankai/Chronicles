@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerData, Injury, InjurySeverity, BodyLocation, Scar, Project } from '../../types';
+import { PlayerData, Injury, InjurySeverity, BodyLocation, Scar, Project, Item } from '../../types';
 import { ConditionGrid } from '../common/ConditionBadge';
 import { ExhaustionBar } from '../common/ExhaustionBar';
 import { DEFAULT_EXHAUSTION_EFFECTS, LONG_REST_OPTIONS, SHORT_REST_OPTIONS, LONG_REST_PICK, SHORT_REST_PICK } from '../../constants';
@@ -130,6 +130,14 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
   const foodItems = (player.inventory ?? []).filter((i) => i.category === 'Food' && i.quantity > 0);
   const hasFoodItems = foodItems.length > 0;
 
+  /** Returns inventory with the selected food item's quantity decremented (removed if 0). */
+  const consumeFoodItem = (inventory: Item[], foodId: string | null): Item[] => {
+    if (!foodId) return inventory;
+    return inventory
+      .map((i) => i.id === foodId ? { ...i, quantity: i.quantity - 1 } : i)
+      .filter((i) => i.quantity > 0);
+  };
+
   const update = <K extends keyof PlayerData>(key: K, value: PlayerData[K]) =>
     onChange({ ...player, [key]: value });
 
@@ -222,16 +230,12 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
     };
 
     // Consume food item if Eat was selected
-    let updatedInventory = [...player.inventory];
-    if (selectedOptions.includes('Eat') && selectedFoodId) {
-      updatedInventory = updatedInventory.map((i) =>
-        i.id === selectedFoodId ? { ...i, quantity: i.quantity - 1 } : i
-      ).filter((i) => i.quantity > 0);
-    }
+    const updatedInventory = selectedOptions.includes('Eat')
+      ? consumeFoodItem([...player.inventory], selectedFoodId)
+      : [...player.inventory];
 
     let updates: Partial<typeof player> = { inventory: updatedInventory };
     if (showRestModal === 'long') {
-      // Reset ALL features on long rest (except restType 'none')
       const featuresReset = (player.features ?? []).map((f) =>
         f.restType !== 'none' ? { ...f, currentCharges: f.maxCharges } : f
       );
@@ -319,12 +323,9 @@ export function ConditionsTab({ player, onChange, canEdit, isGM }: ConditionsTab
       f.restType !== 'none' ? { ...f, currentCharges: f.maxCharges } : f
     );
     // Consume food item if Eat was selected
-    let updatedInventory = [...player.inventory];
-    if (selectedOptions.includes('Eat') && selectedFoodId) {
-      updatedInventory = updatedInventory.map((i) =>
-        i.id === selectedFoodId ? { ...i, quantity: i.quantity - 1 } : i
-      ).filter((i) => i.quantity > 0);
-    }
+    const updatedInventory = selectedOptions.includes('Eat')
+      ? consumeFoodItem([...player.inventory], selectedFoodId)
+      : [...player.inventory];
     const updates: Partial<PlayerData> = {
       inventory: updatedInventory,
       currentHp: player.maxHp,

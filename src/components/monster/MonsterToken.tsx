@@ -364,6 +364,9 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, onPlayerTak
 
   const isLooting = !isGM && (monster.status === 'Dead' || monster.status === 'Vulnerable');
 
+  const clampCoinValue = (value: string, max: number): number =>
+    Math.min(max, Math.max(0, parseInt(value) || 0));
+
   const lootPanel = (
     <div>
       <div className="section-header">Loot</div>
@@ -385,7 +388,7 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, onPlayerTak
                   value={takingCoins[denom]}
                   min={0}
                   max={monster.lootCoins[denom]}
-                  onChange={(e) => setTakingCoins({ ...takingCoins, [denom]: Math.min(monster.lootCoins[denom], Math.max(0, parseInt(e.target.value) || 0)) })}
+                  onChange={(e) => setTakingCoins({ ...takingCoins, [denom]: clampCoinValue(e.target.value, monster.lootCoins[denom]) })}
                   style={{ width: '100%', textAlign: 'center', padding: '2px 2px', fontSize: 11 }}
                 />
               </div>

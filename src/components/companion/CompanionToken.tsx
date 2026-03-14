@@ -10,6 +10,8 @@ import { GMTab } from '../player/GMTab';
 import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS, COMPANION_SIZE_CAPACITY, COMPANION_SIZE_MAX_ANIMAL_AUX } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
 
+const DOUBLE_CLICK_DELAY_MS = 220;
+
 interface CompanionTokenProps {
   companion: CompanionData;
   onUpdate: (updated: CompanionData) => void;
@@ -251,7 +253,7 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, allowPlayer
     } else {
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = null;
-      }, 220);
+      }, DOUBLE_CLICK_DELAY_MS);
     }
   };
 
