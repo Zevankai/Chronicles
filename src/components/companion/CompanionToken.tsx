@@ -5,6 +5,7 @@ import { StatBox } from '../common/StatBox';
 import { HPBar } from '../common/HPBar';
 import { ConditionGrid } from '../common/ConditionBadge';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { GMTab } from '../player/GMTab';
 import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
@@ -143,6 +144,11 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
             update('inventory', [...companion.inventory, { id: generateId(), name, category: 'Other', quantity: 1, equipped: null }]);
           }
         }}>+ Add Item</button>
+      )}
+      {canEdit && (
+        <ItemRepositorySearch
+          onAddItem={(item) => update('inventory', [...companion.inventory, item])}
+        />
       )}
 
       {/* Claim button */}

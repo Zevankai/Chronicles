@@ -5,6 +5,7 @@ import { HPBar } from '../common/HPBar';
 import { ConditionGrid } from '../common/ConditionBadge';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { TabPanel } from '../common/TabPanel';
+import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { GMTab } from '../player/GMTab';
 import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
 import { generateId } from '../../utils';
@@ -400,6 +401,11 @@ export function MonsterToken({ monster, onUpdate, isGM, onLootClick, calendar, o
             setNewLootName('');
           }}>+ Add Loot</button>
         </div>
+      )}
+      {isGM && (
+        <ItemRepositorySearch
+          onAddItem={(item) => update('loot', [...monster.loot, item])}
+        />
       )}
 
       {/* Claim button */}

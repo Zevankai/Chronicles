@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlayerData, Item, ItemCategory, EquipmentSlot } from '../../types';
 import { CoinDisplay } from '../common/CoinDisplay';
+import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { ITEM_CATEGORY_WEIGHTS, ITEM_CATEGORIES } from '../../constants';
 import { getInventoryWeight, getEncumbranceStatus, getCombatEncumberedThreshold, getOverEncumberedThreshold, getPlayerCapacity, generateId, getModifier, parseBodyWeight } from '../../utils';
 
@@ -813,6 +814,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                   </div>
                 )}
                 <AddItemForm onAdd={addItem} disabled={totalWeight >= bagCapacity} />
+                <ItemRepositorySearch onAddItem={addItem} disabled={totalWeight >= bagCapacity} />
               </>
             )}
           </div>
