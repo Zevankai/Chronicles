@@ -11,14 +11,14 @@ export const ITEM_REPOSITORY: ItemRepositoryEntry[] = [
   // ────────────────────────────────────────────────
   { name: 'Club', valueText: '1 sp', damage: '1d4 Bludgeon', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Light' },
   { name: 'Dagger', valueText: '2 gp', damage: '1d4 Piercing', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Finesse, Light, Thrown (20/60)' },
-  { name: 'Greatclub', valueText: '2 sp', damage: '1d8 Bludgeon', weight: 3, itemType: 'Simple Melee Weapons', category: 'Two-Handed Weapon', properties: '' },
+  { name: 'Greatclub', valueText: '2 sp', damage: '1d8 Bludgeon', weight: 10, itemType: 'Simple Melee Weapons', category: 'Two-Handed Weapon', properties: '' },
   { name: 'Handaxe', valueText: '5 gp', damage: '1d6 Slashing', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Light, Thrown (20/60)' },
   { name: 'Javelin', valueText: '5 sp', damage: '1d6 Piercing', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Thrown (30/120)' },
   { name: 'Light Hammer', valueText: '2 gp', damage: '1d4 Bludgeon', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Light, Thrown (20/60)' },
   { name: 'Mace', valueText: '5 gp', damage: '1d6 Bludgeon', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: '' },
   { name: 'Quarterstaff', valueText: '2 sp', damage: '1d6 Bludgeon', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Versatile (1d8)' },
   { name: 'Sickle', valueText: '1 gp', damage: '1d4 Slashing', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Light' },
-  { name: 'Spear', valueText: '1 gp', damage: '1d4 Piercing', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Thrown (20/60), Versatile (1d8)' },
+  { name: 'Spear', valueText: '1 gp', damage: '1d6 Piercing', weight: 3, itemType: 'Simple Melee Weapons', category: 'One-Handed Weapon', properties: 'Thrown (20/60), Versatile (1d8)' },
 
   // ────────────────────────────────────────────────
   // SIMPLE RANGED WEAPONS
@@ -422,7 +422,7 @@ export const ITEM_REPOSITORY: ItemRepositoryEntry[] = [
   { name: 'Rope Arrow', valueText: '1 gp', weight: 0.5, itemType: 'Homebrew Arrows', category: 'Ammo', properties: 'Attaches 30 ft rope to target surface' },
   { name: 'Signal Arrow', valueText: '3 sp', weight: 0.1, itemType: 'Homebrew Arrows', category: 'Ammo', properties: 'Emits bright colored light and whistle sound on impact' },
   { name: 'Hunting Arrow', valueText: '1 sp', weight: 0.1, itemType: 'Homebrew Arrows', category: 'Ammo', properties: '+1d4 vs. beasts and monstrosities' },
-  { name: 'Armor-Piercing Bolt', valueText: '4 sp', weight: 0.15, itemType: 'Homebrew Arrows', category: 'Light Ammo', properties: 'Ignores first 3 points of AC bonus from armor' },
+  { name: 'Armor-Piercing Bolt', valueText: '4 sp', weight: 0.15, itemType: 'Homebrew Arrows', category: 'Ammo', properties: 'Ignores first 3 points of AC bonus from armor' },
 ];
 
 export const ITEM_REPOSITORY_TYPES: string[] = Array.from(
