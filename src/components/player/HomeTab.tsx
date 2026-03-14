@@ -10,11 +10,16 @@ interface HomeTabProps {
   isOwner: boolean;
   isGM: boolean;
   weather?: string;
-  onTradeClick?: () => void;
   playerId?: string | null;
 }
 
-export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick, playerId }: HomeTabProps) {
+const REST_TYPE_LABEL: Record<string, string> = {
+  short: '🌙',
+  long: '💤',
+  none: '',
+};
+
+export function HomeTab({ player, onChange, isOwner, isGM, weather, playerId }: HomeTabProps) {
   const canEdit = isOwner || isGM;
   const enc = getEncumbranceStatus(player);
   const totalWeight = getInventoryWeight(player.inventory, player.coins);
@@ -33,6 +38,18 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
     player.conditions.length > 0 ||
     player.exhaustionLevel > 0 ||
     player.injuries.some((i) => !i.healed);
+
+  const pinnedFeatures = (player.features ?? []).filter((f) => f.pinned);
+
+  const toggleCharge = (featureId: string, chargeIndex: number) => {
+    const features = (player.features ?? []).map((f) => {
+      if (f.id !== featureId) return f;
+      const isAvailable = chargeIndex < f.currentCharges;
+      const newCurrent = isAvailable ? f.currentCharges - 1 : f.currentCharges + 1;
+      return { ...f, currentCharges: Math.max(0, Math.min(f.maxCharges, newCurrent)) };
+    });
+    onChange({ ...player, features });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -163,6 +180,69 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
         </div>
       )}
 
+      {/* Pinned Features */}
+      {pinnedFeatures.length > 0 && (
+        <div>
+          <div className="section-header">📌 Pinned Features</div>
+          {pinnedFeatures.map((feature) => (
+            <div
+              key={feature.id}
+              style={{
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-gold)',
+                borderRadius: 6,
+                padding: '6px 10px',
+                marginBottom: 4,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                <div style={{ fontWeight: 'bold', fontSize: 12 }}>{feature.name}</div>
+                <span style={{
+                  fontSize: 10,
+                  color: 'var(--color-text-muted)',
+                  background: 'var(--color-surface-dark)',
+                  padding: '1px 5px',
+                  borderRadius: 8,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  marginLeft: 4,
+                }}>
+                  {REST_TYPE_LABEL[feature.restType] ?? '🌙'}{' '}
+                  {feature.restType === 'short' ? 'Short' : feature.restType === 'long' ? 'Long' : 'Manual'}
+                </span>
+              </div>
+              {feature.maxCharges > 0 && (
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    {feature.currentCharges}/{feature.maxCharges}
+                  </span>
+                  {Array.from({ length: feature.maxCharges }).map((_, i) => {
+                    const isAvailable = i < feature.currentCharges;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => canEdit && toggleCharge(feature.id, i)}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          border: `2px solid var(--color-primary)`,
+                          borderRadius: 3,
+                          background: isAvailable ? 'var(--color-primary)' : 'transparent',
+                          cursor: canEdit ? 'pointer' : 'default',
+                          padding: 0,
+                          flexShrink: 0,
+                        }}
+                        title={isAvailable ? 'Click to use charge' : 'Click to restore charge'}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Claim button */}
       {player.claimable && (!player.ownerId || isGM) && (
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
@@ -191,22 +271,13 @@ export function HomeTab({ player, onChange, isOwner, isGM, weather, onTradeClick
         </div>
       )}
 
-      {/* Weather & Trade */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-        {weather && (
-          <div className="weather-display">
-            <span>🌤</span>
-            <span>{weather}</span>
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(isOwner || isGM) && onTradeClick && (
-            <button className="btn btn-secondary btn-sm" onClick={onTradeClick}>
-              💱 Trade
-            </button>
-          )}
+      {/* Weather */}
+      {weather && (
+        <div className="weather-display">
+          <span>🌤</span>
+          <span>{weather}</span>
         </div>
-      </div>
+      )}
     </div>
   );
 }

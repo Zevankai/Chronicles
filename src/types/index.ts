@@ -37,7 +37,7 @@ export type ItemCategory =
   | 'One-Handed Weapon' | 'Two-Handed Weapon'
   | 'Clothing' | 'Light Ammo' | 'Ammo'
   | 'Jewelry' | 'Shield' | 'Magic Item' | 'Literature'
-  | 'Camp' | 'Auxiliary' | 'Bag' | 'Helmet' | 'Greaves' | 'Boots';
+  | 'Camp' | 'Auxiliary' | 'Animal Auxiliary' | 'Bag' | 'Helmet' | 'Greaves' | 'Boots';
 
 export type EquipmentSlot =
   | 'Bag' | 'Auxiliary1' | 'Auxiliary2'
@@ -58,7 +58,8 @@ export interface Item {
   quantity: number;
   weight?: number; // override default category weight
   description?: string;
-  value?: number; // in CP
+  value?: number; // numeric amount in the chosen denomination
+  valueCurrency?: 'cp' | 'sp' | 'gp' | 'pp'; // denomination for value (defaults to 'cp')
   equipped?: EquipmentSlot | null;
   properties?: string; // notes/properties as text
 
@@ -179,7 +180,8 @@ export interface PlayerFeature {
   description: string;
   maxCharges: number;
   currentCharges: number;
-  restType: 'short' | 'long'; // recharges on short rest or long rest
+  restType: 'short' | 'long' | 'none'; // recharges on short rest, long rest, or never (manual only)
+  pinned?: boolean; // pinned to the Home tab
 }
 
 // ============================================================
@@ -236,6 +238,19 @@ export interface CalendarMonth {
   name: string;
   days: number;
   season?: string; // which season this month belongs to
+}
+
+export type CalendarEventType = 'session' | 'lore' | 'holiday' | 'campaign' | 'other';
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  type: CalendarEventType;
+  month: number; // 0-indexed
+  day: number;
+  year: number;
+  description?: string;
+  visibleToPlayers: boolean;
 }
 
 export interface CalendarConfig {
@@ -432,10 +447,17 @@ export interface MonsterData {
 // COMPANION TOKEN
 // ============================================================
 
+export type CompanionSize = 'tiny' | 'small' | 'medium' | 'large';
+
 export interface CompanionData {
   tokenType: 'companion';
   name: string;
+  imageUrl?: string; // optional custom image URL
+  imageZoom?: number;
+  imageOffsetX?: number;
+  imageOffsetY?: number;
   ownerId: string; // player token ID
+  size?: CompanionSize; // size category affecting carry capacity
   currentHp: number;
   maxHp: number;
   ac: number;
@@ -562,17 +584,32 @@ export interface PendingMerchantTrade {
   timestamp: number;
 }
 
+export interface PlayerTradeRequest {
+  id: string;
+  initiatorTokenId: string;
+  initiatorPlayerId: string;
+  initiatorName: string;
+  targetTokenId: string;
+  targetPlayerId: string; // ownerId of the target player token
+  targetName: string;
+  status: 'pending_approval' | 'active' | 'cancelled' | 'denied';
+  timestamp: number;
+}
+
 export interface RoomMetadata {
   calendar: CalendarConfig;
+  calendarEvents?: CalendarEvent[];
   weather: WeatherData;
   biome: Biome;
   tradeRange: number; // in squares, default 5
   itemRepository: Item[];
   spellRepository: Spell[];
   exhaustionConfig: ExhaustionLevel[];
+  allowPlayerItemCreation?: boolean; // GM toggle: can players add items from repo/create new?
   activeTrades?: Record<string, string>; // tokenId -> playerIdTrading
   pendingMerchantTrades?: PendingMerchantTrade[];
   pendingPlayerTrades?: TradeSession[]; // player-to-player trades pending dual confirmation
+  playerTradeRequests?: PlayerTradeRequest[]; // pending trade invitations
   version: number;
 }
 

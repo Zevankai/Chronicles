@@ -50,7 +50,7 @@ function ItemDetailModal({ item, onClose }: { item: Item; onClose: () => void })
             {item.damageModifier !== undefined && <div><strong>Dmg Mod:</strong> {item.damageModifier >= 0 ? '+' : ''}{item.damageModifier}</div>}
             {item.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{item.acBonus}</div>}
             {item.maxCharges !== undefined && <div><strong>Charges:</strong> {item.currentCharges ?? 0}/{item.maxCharges}</div>}
-            {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+            {item.value !== undefined && <div><strong>Value:</strong> {item.value} {item.valueCurrency ?? 'cp'}</div>}
           </div>
           {item.price && (
             <div style={{ fontSize: 11 }}>
@@ -248,16 +248,17 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          cursor: 'pointer',
+          cursor: isMySide ? 'pointer' : 'not-allowed',
           fontSize: 12,
           color: confirmed ? 'var(--color-success)' : 'var(--color-text)',
         }}>
           <input
             type="checkbox"
             checked={confirmed}
-            onChange={onToggleConfirm}
+            onChange={isMySide ? onToggleConfirm : undefined}
+            disabled={!isMySide}
           />
-          {confirmed ? '✅ Confirmed' : 'Confirm offer'}
+          {confirmed ? '✅ Confirmed' : isMySide ? 'Confirm offer' : '🔒 Waiting for other party'}
         </label>
       </div>
     </div>

@@ -12,6 +12,7 @@ interface StorageTokenProps {
   onUpdate: (updated: StorageData) => void;
   isGM: boolean;
   canAccess: boolean;
+  allowPlayerItemCreation?: boolean;
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
@@ -61,9 +62,17 @@ function ItemEditForm({
                 onChange={(e) => update('weight', e.target.value ? parseFloat(e.target.value) : undefined)} />
             </div>
             <div>
-              <label className="field-label">Value (CP)</label>
-              <input type="number" value={draft.value ?? ''} placeholder="0" min={0}
-                onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+              <label className="field-label">Value</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input type="number" value={draft.value ?? ''} placeholder="0" min={0} style={{ flex: 2 }}
+                  onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+                <select value={draft.valueCurrency ?? 'cp'} onChange={(e) => update('valueCurrency', e.target.value as 'cp' | 'sp' | 'gp' | 'pp')} style={{ flex: 1 }}>
+                  <option value="cp">cp</option>
+                  <option value="sp">sp</option>
+                  <option value="gp">gp</option>
+                  <option value="pp">pp</option>
+                </select>
+              </div>
             </div>
           </div>
           <div>
@@ -105,7 +114,7 @@ function ItemEditForm({
   );
 }
 
-export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onCalendarChange, onTokenTypeChange, playerId }: StorageTokenProps) {
+export function StorageToken({ storage, onUpdate, isGM, canAccess, allowPlayerItemCreation = true, calendar, onCalendarChange, onTokenTypeChange, playerId }: StorageTokenProps) {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
@@ -207,7 +216,7 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
                   }}>
                     {item.description && <div style={{ marginBottom: 4, color: 'var(--color-text)' }}>{item.description}</div>}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                      {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+                      {item.value !== undefined && <div><strong>Value:</strong> {item.value} {item.valueCurrency ?? 'cp'}</div>}
                       {item.damage && <div><strong>Damage:</strong> {item.damage}</div>}
                       {item.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{item.acBonus}</div>}
                       {item.maxCharges !== undefined && <div><strong>Charges:</strong> {item.currentCharges ?? 0}/{item.maxCharges}</div>}
@@ -218,7 +227,7 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
               </div>
             );
           })}
-          {canAccess && (
+          {canAccess && allowPlayerItemCreation && (
             <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
               <input
                 type="text"
@@ -236,10 +245,15 @@ export function StorageToken({ storage, onUpdate, isGM, canAccess, calendar, onC
               <button className="btn btn-sm btn-secondary" onClick={addItem}>+ Add</button>
             </div>
           )}
-          {canAccess && (
+          {canAccess && allowPlayerItemCreation && (
             <ItemRepositorySearch
               onAddItem={(item) => update('inventory', [...storage.inventory, item])}
             />
+          )}
+          {canAccess && !allowPlayerItemCreation && !isGM && (
+            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', padding: '4px 0' }}>
+              Item creation disabled by GM.
+            </div>
           )}
         </>
       )}

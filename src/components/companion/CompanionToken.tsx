@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CompanionData, CalendarConfig } from '../../types';
+import React, { useState, useRef } from 'react';
+import { CompanionData, CalendarConfig, CompanionSize, Item } from '../../types';
 import { TabPanel } from '../common/TabPanel';
 import { StatBox } from '../common/StatBox';
 import { HPBar } from '../common/HPBar';
@@ -7,7 +7,7 @@ import { ConditionGrid } from '../common/ConditionBadge';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { GMTab } from '../player/GMTab';
-import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS } from '../../constants';
+import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS, COMPANION_SIZE_CAPACITY, COMPANION_SIZE_MAX_ANIMAL_AUX } from '../../constants';
 import { getInventoryWeight, generateId } from '../../utils';
 
 interface CompanionTokenProps {
@@ -15,14 +15,17 @@ interface CompanionTokenProps {
   onUpdate: (updated: CompanionData) => void;
   isGM: boolean;
   canEdit: boolean;
+  allowPlayerItemCreation?: boolean;
   calendar?: CalendarConfig;
   onCalendarChange?: (cal: CalendarConfig) => void;
   onTokenTypeChange?: (type: string) => void;
   playerId?: string | null;
 }
 
-export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, onCalendarChange, onTokenTypeChange, playerId }: CompanionTokenProps) {
+export function CompanionToken({ companion, onUpdate, isGM, canEdit, allowPlayerItemCreation = true, calendar, onCalendarChange, onTokenTypeChange, playerId }: CompanionTokenProps) {
   const [extendedView, setExtendedView] = useState(false);
+  const [showImageEditor, setShowImageEditor] = useState(false);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const update = <K extends keyof CompanionData>(key: K, value: CompanionData[K]) =>
     onUpdate({ ...companion, [key]: value });
 
@@ -56,6 +59,30 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
             <option value="Fleeing">Fleeing</option>
           </select>
         </div>
+      </div>
+
+      {/* Size Category */}
+      <div>
+        <label className="field-label">Size Category</label>
+        <select
+          value={companion.size ?? 'medium'}
+          onChange={(e) => {
+            const newSize = e.target.value as CompanionSize;
+            const newCapacity = COMPANION_SIZE_CAPACITY[newSize] ?? companion.carryCapacity;
+            onUpdate({ ...companion, size: newSize, carryCapacity: newCapacity });
+          }}
+          disabled={!canEdit}
+        >
+          <option value="tiny">Tiny (max 2u — squirrel/mouse)</option>
+          <option value="small">Small (max 6u — hawk/cat)</option>
+          <option value="medium">Medium (max 60u — wolf/panther)</option>
+          <option value="large">Large (max 500u — horse/direwolf)</option>
+        </select>
+        {companion.size && (
+          <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+            Max {COMPANION_SIZE_CAPACITY[companion.size]}u carry · {COMPANION_SIZE_MAX_ANIMAL_AUX[companion.size]} animal auxiliary bag{COMPANION_SIZE_MAX_ANIMAL_AUX[companion.size] !== 1 ? 's' : ''} allowed
+          </div>
+        )}
       </div>
 
       <HPBar current={companion.currentHp} max={companion.maxHp} />
@@ -137,7 +164,7 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
           )}
         </div>
       ))}
-      {canEdit && (
+      {canEdit && allowPlayerItemCreation && (
         <button className="btn btn-sm btn-secondary" onClick={() => {
           const name = prompt('Item name:');
           if (name) {
@@ -145,10 +172,15 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
           }
         }}>+ Add Item</button>
       )}
-      {canEdit && (
+      {canEdit && allowPlayerItemCreation && (
         <ItemRepositorySearch
           onAddItem={(item) => update('inventory', [...companion.inventory, item])}
         />
+      )}
+      {canEdit && !allowPlayerItemCreation && !isGM && (
+        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', padding: '4px 0' }}>
+          Item creation disabled by GM.
+        </div>
       )}
 
       {/* Claim button */}
@@ -205,17 +237,130 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, calendar, o
   const panels = [statsPanel, inventoryPanel, conditionsPanel];
   if (isGM) { panels.push(notesPanel); panels.push(gmPanel); }
 
+  const avatarUrl = companion.imageUrl || null;
+  const zoom = companion.imageZoom ?? 1;
+  const offsetX = companion.imageOffsetX ?? 0;
+  const offsetY = companion.imageOffsetY ?? 0;
+
+  const handleAvatarClick = () => {
+    if (!canEdit) return;
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      setShowImageEditor(true);
+    } else {
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+      }, 220);
+    }
+  };
+
   return (
     <div>
       <div className="token-header">
-        <div className="token-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🐾</div>
+        {avatarUrl ? (
+          <div
+            className="token-avatar"
+            onClick={handleAvatarClick}
+            style={{
+              cursor: canEdit ? 'pointer' : 'default',
+              overflow: 'hidden',
+              border: '2px solid rgba(218,165,32,0.4)',
+              position: 'relative',
+            }}
+            title={canEdit ? 'Double-click to edit image' : undefined}
+          >
+            <img
+              src={avatarUrl}
+              alt={companion.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`,
+                transformOrigin: 'center',
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            className="token-avatar"
+            onClick={handleAvatarClick}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, cursor: canEdit ? 'pointer' : 'default' }}
+            title={canEdit ? 'Double-click to add image' : undefined}
+          >
+            🐾
+          </div>
+        )}
         <div style={{ flex: 1 }}>
           <div className="token-name">{companion.name}</div>
           <div className="token-subtitle">{companion.currentHp}/{companion.maxHp} HP · AC {companion.ac}</div>
-          <div className="token-subtitle">Companion</div>
+          <div className="token-subtitle">Companion{companion.size ? ` · ${companion.size.charAt(0).toUpperCase() + companion.size.slice(1)}` : ''}</div>
         </div>
         <button className="btn-icon" title="Extended View" onClick={() => setExtendedView(true)} style={{ fontSize: 14, color: 'white', alignSelf: 'flex-start' }}>⛶</button>
       </div>
+
+      {/* Image Editor Modal */}
+      {showImageEditor && canEdit && (
+        <div className="modal-overlay" onClick={() => setShowImageEditor(false)}>
+          <div className="modal" style={{ maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">🖼 Image Settings</span>
+              <button className="btn-icon" onClick={() => setShowImageEditor(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label className="field-label">Image URL</label>
+                <input
+                  type="url"
+                  value={companion.imageUrl ?? ''}
+                  onChange={(e) => update('imageUrl', e.target.value || undefined)}
+                  placeholder="https://... image URL"
+                />
+              </div>
+              {avatarUrl && (
+                <>
+                  <div>
+                    <label className="field-label">Zoom ({(zoom * 100).toFixed(0)}%)</label>
+                    <input
+                      type="range" min={1} max={3} step={0.05} value={zoom}
+                      onChange={(e) => update('imageZoom', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label className="field-label">Offset X ({offsetX}px)</label>
+                      <input type="range" min={-50} max={50} step={1} value={offsetX}
+                        onChange={(e) => update('imageOffsetX', parseInt(e.target.value))}
+                        style={{ width: '100%' }} />
+                    </div>
+                    <div>
+                      <label className="field-label">Offset Y ({offsetY}px)</label>
+                      <input type="range" min={-50} max={50} step={1} value={offsetY}
+                        onChange={(e) => update('imageOffsetY', parseInt(e.target.value))}
+                        style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--color-gold)' }}>
+                      <img src={avatarUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoom}) translate(${offsetX}px, ${offsetY}px)`, transformOrigin: 'center' }} />
+                    </div>
+                  </div>
+                  <button className="btn btn-sm btn-secondary"
+                    onClick={() => onUpdate({ ...companion, imageZoom: 1, imageOffsetX: 0, imageOffsetY: 0 })}>
+                    Reset Zoom/Offset
+                  </button>
+                </>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className="btn btn-primary" onClick={() => setShowImageEditor(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {extendedView && (
         <div className="modal-overlay" onClick={() => setExtendedView(false)}>
           <div className="modal" style={{ maxWidth: 680, width: '95vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>

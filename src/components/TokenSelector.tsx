@@ -1,6 +1,6 @@
 import React from 'react';
 import OBR from '@owlbear-rodeo/sdk';
-import { AnyTokenData, PlayerData, MonsterData, CompanionData, StorageData, LoreData, NPCData, MerchantData, RoomMetadata, CalendarConfig, WeatherData } from '../types';
+import { AnyTokenData, PlayerData, MonsterData, CompanionData, StorageData, LoreData, NPCData, MerchantData, RoomMetadata, CalendarConfig, WeatherData, CalendarEvent, Item } from '../types';
 import { PlayerToken } from './player';
 import { MonsterToken } from './monster';
 import { CompanionToken } from './companion';
@@ -9,6 +9,7 @@ import { LoreToken } from './lore';
 import { NPCToken } from './npc';
 import { MerchantToken } from './merchant';
 import { createDefaultPlayerData, createDefaultMonsterData } from '../utils';
+import { TOKEN_NAMESPACE } from '../constants';
 
 interface TokenSelectorProps {
   itemId: string;
@@ -66,7 +67,7 @@ function NoTokenData({ itemId, isGM, onUpdate }: { itemId: string; isGM: boolean
                   defaultData = createDefaultMonsterData();
                   break;
                 case 'companion':
-                  defaultData = { tokenType: 'companion', name: 'Companion', ownerId: itemId, currentHp: 10, maxHp: 10, ac: 12, speed: 30, status: 'Alive', attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }, abilities: [], actions: [], conditions: [], inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, carryCapacity: 50, notes: '', version: 1 };
+                  defaultData = { tokenType: 'companion', name: 'Companion', ownerId: itemId, currentHp: 10, maxHp: 10, ac: 12, speed: 30, status: 'Alive', attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }, abilities: [], actions: [], conditions: [], inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, carryCapacity: 60, size: 'medium', notes: '', version: 1 };
                   break;
                 case 'storage':
                   defaultData = { tokenType: 'storage', name: 'Chest', storageType: 'SmallChest', capacity: 30, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, locked: false, notes: '', version: 1 };
@@ -99,7 +100,7 @@ function createDefaultForType(type: string, currentData: AnyTokenData): AnyToken
   switch (type) {
     case 'player': return createDefaultPlayerData();
     case 'monster': return createDefaultMonsterData();
-    case 'companion': return { tokenType: 'companion', name: (currentData as { name?: string }).name || 'Companion', ownerId: '', currentHp: 10, maxHp: 10, ac: 12, speed: 30, status: 'Alive', attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }, abilities: [], actions: [], conditions: [], inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, carryCapacity: 50, notes: '', version: 1 };
+    case 'companion': return { tokenType: 'companion', name: (currentData as { name?: string }).name || 'Companion', ownerId: '', currentHp: 10, maxHp: 10, ac: 12, speed: 30, status: 'Alive', attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 }, abilities: [], actions: [], conditions: [], inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, carryCapacity: 60, size: 'medium', notes: '', version: 1 };
     case 'storage': return { tokenType: 'storage', name: (currentData as { name?: string }).name || 'Container', storageType: 'SmallChest', capacity: 30, inventory: [], coins: { cp: 0, sp: 0, gp: 0, pp: 0 }, locked: false, notes: '', version: 1 };
     case 'lore': return { tokenType: 'lore', name: (currentData as { name?: string }).name || 'Lore', category: 'Location', summary: '', fullText: '', revealed: false, tags: [], notes: '', version: 1 };
     case 'npc': return { tokenType: 'npc', name: (currentData as { name?: string }).name || 'NPC', race: '', alignment: 'TN', occupation: '', location: '', personality: '', appearance: '', background: '', motivations: '', secrets: '', relationships: [], quests: [], notes: '', revealed: false, revealedFields: [], version: 1 };
@@ -115,8 +116,11 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
 
   const calendar = roomData?.calendar;
   const weather = roomData?.weather;
+  const calendarEvents = roomData?.calendarEvents ?? [];
+  const allowPlayerItemCreation = roomData?.allowPlayerItemCreation !== false; // default true
   const onCalendarChange = isGM && onRoomUpdate ? (cal: CalendarConfig) => onRoomUpdate({ ...roomData!, calendar: cal }) : undefined;
   const onWeatherChange = isGM && onRoomUpdate ? (w: WeatherData) => onRoomUpdate({ ...roomData!, weather: w }) : undefined;
+  const onEventsChange = isGM && onRoomUpdate ? (events: CalendarEvent[]) => onRoomUpdate({ ...roomData!, calendarEvents: events }) : undefined;
   const onTokenTypeChange = isGM ? (type: string) => onUpdate(createDefaultForType(type, data)) : undefined;
 
   switch (data.tokenType) {
@@ -132,9 +136,11 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
           playerId={playerId}
           calendar={calendar}
           weather={weather}
+          calendarEvents={calendarEvents}
           onCalendarChange={onCalendarChange}
           onWeatherChange={onWeatherChange}
-          onTradeClick={() => {
+          onEventsChange={onEventsChange}
+          onTradeClick={isOwner || isGM ? () => {
             const base = window.location.href.split('?')[0];
             OBR.popover.open({
               id: 'chronicles-trade',
@@ -142,18 +148,60 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
               width: 700,
               height: 600,
             });
-          }}
+          } : undefined}
           itemId={itemId}
           tokenImageUrl={tokenImageUrl}
+          allowPlayerItemCreation={isGM ? true : allowPlayerItemCreation}
         />
       );
     }
     case 'monster': {
+      const monster = data as MonsterData;
+      // Build a callback for players to take loot directly
+      const handlePlayerTakeLoot = (!isGM && (monster.status === 'Dead' || monster.status === 'Vulnerable') && playerId)
+        ? async (items: { item: Item; qty: number }[], coins: { cp: number; sp: number; gp: number; pp: number }) => {
+            // Find the player's own token to add loot to
+            try {
+              const allItems = await OBR.scene.items.getItems();
+              const playerItem = allItems.find((i) => {
+                const td = i.metadata[TOKEN_NAMESPACE] as AnyTokenData | undefined;
+                return td?.tokenType === 'player' && (td as PlayerData).ownerId === playerId;
+              });
+              if (playerItem) {
+                const playerData = playerItem.metadata[TOKEN_NAMESPACE] as PlayerData;
+                let inv = [...playerData.inventory];
+                for (const { item, qty } of items) {
+                  const existing = inv.find((i) => i.id === item.id);
+                  if (existing) {
+                    inv = inv.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + qty } : i);
+                  } else {
+                    inv = [...inv, { ...item, quantity: qty }];
+                  }
+                }
+                const updatedCoins = {
+                  cp: playerData.coins.cp + coins.cp,
+                  sp: playerData.coins.sp + coins.sp,
+                  gp: playerData.coins.gp + coins.gp,
+                  pp: playerData.coins.pp + coins.pp,
+                };
+                await OBR.scene.items.updateItems([playerItem.id], (obrItems) => {
+                  for (const obrItem of obrItems) {
+                    obrItem.metadata[TOKEN_NAMESPACE] = { ...playerData, inventory: inv, coins: updatedCoins };
+                  }
+                });
+              }
+            } catch (e) {
+              console.error('Failed to transfer loot to player:', e);
+            }
+          }
+        : undefined;
+
       return (
         <MonsterToken
-          monster={data as MonsterData}
+          monster={monster}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
+          onPlayerTakeLoot={handlePlayerTakeLoot}
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
@@ -163,13 +211,14 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
     }
     case 'companion': {
       const companion = data as CompanionData;
-      const isOwner = companion.ownerId === playerId;
+      const isOwner = companion.claimedBy === playerId || companion.ownerId === playerId;
       return (
         <CompanionToken
           companion={companion}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
           canEdit={isOwner || isGM}
+          allowPlayerItemCreation={isGM ? true : allowPlayerItemCreation}
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}
@@ -178,12 +227,15 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
       );
     }
     case 'storage': {
+      const storage = data as StorageData;
+      const canAccess = !storage.locked || storage.claimedBy === playerId || isGM;
       return (
         <StorageToken
-          storage={data as StorageData}
+          storage={storage}
           onUpdate={(updated) => onUpdate(updated)}
           isGM={isGM}
-          canAccess={isGM}
+          canAccess={canAccess}
+          allowPlayerItemCreation={isGM ? true : allowPlayerItemCreation}
           calendar={calendar}
           onCalendarChange={onCalendarChange}
           onTokenTypeChange={onTokenTypeChange}

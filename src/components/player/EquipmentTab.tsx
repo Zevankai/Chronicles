@@ -9,6 +9,7 @@ interface EquipmentTabProps {
   player: PlayerData;
   onChange: (updated: PlayerData) => void;
   canEdit: boolean;
+  allowPlayerItemCreation?: boolean;
 }
 
 const EQUIPMENT_SLOTS: { slot: EquipmentSlot; label: string; icon: string }[] = [
@@ -112,9 +113,18 @@ function ItemEditForm({
                 onChange={(e) => update('weight', e.target.value ? parseFloat(e.target.value) : undefined)} />
             </div>
             <div>
-              <label className="field-label">Value (CP)</label>
-              <input type="number" value={draft.value ?? ''} placeholder="0" min={0}
-                onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+              <label className="field-label">Value</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input type="number" value={draft.value ?? ''} placeholder="0" min={0}
+                  style={{ flex: 2 }}
+                  onChange={(e) => update('value', e.target.value ? parseInt(e.target.value) : undefined)} />
+                <select value={draft.valueCurrency ?? 'cp'} onChange={(e) => update('valueCurrency', e.target.value as 'cp' | 'sp' | 'gp' | 'pp')} style={{ flex: 1 }}>
+                  <option value="cp">cp</option>
+                  <option value="sp">sp</option>
+                  <option value="gp">gp</option>
+                  <option value="pp">pp</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -343,7 +353,7 @@ function AddItemForm({ onAdd, disabled }: { onAdd: (item: Item) => void; disable
   );
 }
 
-export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
+export function EquipmentTab({ player, onChange, canEdit, allowPlayerItemCreation = true }: EquipmentTabProps) {
   const [subTab, setSubTab] = useState<'slots' | 'bag' | 'quick'>('slots');
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
@@ -602,7 +612,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
               }}>
                 {item.description && <div style={{ marginBottom: 4, color: 'var(--color-text)', whiteSpace: 'pre-wrap' }}>{item.description}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                  {item.value !== undefined && <div><strong>Value:</strong> {item.value} cp</div>}
+                  {item.value !== undefined && <div><strong>Value:</strong> {item.value} {item.valueCurrency ?? 'cp'}</div>}
                   {item.damage && <div><strong>Damage:</strong> {item.damage}</div>}
                   {item.hitModifier !== undefined && <div><strong>Hit Mod:</strong> {item.hitModifier >= 0 ? '+' : ''}{item.hitModifier}</div>}
                   {item.damageModifier !== undefined && <div><strong>Dmg Mod:</strong> {item.damageModifier >= 0 ? '+' : ''}{item.damageModifier}</div>}
@@ -813,8 +823,13 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                     🎒 Bag full — cannot add items
                   </div>
                 )}
-                <AddItemForm onAdd={addItem} disabled={totalWeight >= bagCapacity} />
-                <ItemRepositorySearch onAddItem={addItem} disabled={totalWeight >= bagCapacity} />
+                {allowPlayerItemCreation && <AddItemForm onAdd={addItem} disabled={totalWeight >= bagCapacity} />}
+                {allowPlayerItemCreation && <ItemRepositorySearch onAddItem={addItem} disabled={totalWeight >= bagCapacity} />}
+                {!allowPlayerItemCreation && (
+                  <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', padding: '4px 0' }}>
+                    Item creation disabled by GM. Items can be obtained via trading, looting, or merchants.
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -852,7 +867,7 @@ export function EquipmentTab({ player, onChange, canEdit }: EquipmentTabProps) {
                 {viewingItem.damageModifier !== undefined && <div><strong>Dmg Mod:</strong> {viewingItem.damageModifier >= 0 ? '+' : ''}{viewingItem.damageModifier}</div>}
                 {viewingItem.acBonus !== undefined && <div><strong>AC Bonus:</strong> +{viewingItem.acBonus}</div>}
                 {viewingItem.maxCharges !== undefined && <div><strong>Charges:</strong> {viewingItem.currentCharges ?? 0}/{viewingItem.maxCharges}</div>}
-                {viewingItem.value !== undefined && <div><strong>Value:</strong> {viewingItem.value} cp</div>}
+                {viewingItem.value !== undefined && <div><strong>Value:</strong> {viewingItem.value} {viewingItem.valueCurrency ?? 'cp'}</div>}
                 {viewingItem.requiresAttunement && <div><strong>Attunement:</strong> {viewingItem.attuned ? '✦ Attuned' : '◇ Required'}</div>}
               </div>
               {viewingItem.properties && (
