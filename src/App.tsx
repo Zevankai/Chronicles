@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import OBR, { Item as OBRItem, Player } from '@owlbear-rodeo/sdk';
-import { AnyTokenData, PlayerData, MerchantData, RoomMetadata } from './types';
+import { AnyTokenData, PlayerData, MerchantData, RoomMetadata, CompanionData, StorageData } from './types';
 import { TOKEN_NAMESPACE, ROOM_NAMESPACE, DEFAULT_CALENDAR, DEFAULT_EXHAUSTION_EFFECTS, DEFAULT_TRADE_RANGE } from './constants';
 import { generateWeather } from './utils';
 import { TokenSelector } from './components/TokenSelector';
@@ -235,12 +235,38 @@ export default function App() {
     );
   }
 
+  // Compute incoming trade requests once — used in both landing page and floating overlay
+  const myPlayerTokenIds = state.playerId
+    ? Object.entries(state.allTokensMap)
+        .filter(([, td]) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId)
+        .map(([id]) => id)
+    : [];
+  const incomingTradeRequests = (!state.isGM && state.roomData && state.playerId)
+    ? (state.roomData.playerTradeRequests || []).filter(
+        (r) => r.status === 'pending_approval' && myPlayerTokenIds.includes(r.targetTokenId)
+      )
+    : [];
+
   if (!state.selectedItemId) {
     // Find ALL player tokens claimed by this player
     const playerTokenEntries = state.playerId
       ? Object.entries(state.allTokensMap)
           .filter(([, td]) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId)
           .map(([id, td]) => ({ id, data: td as PlayerData }))
+      : [];
+
+    // Find claimed companion tokens
+    const companionTokenEntries = state.playerId
+      ? Object.entries(state.allTokensMap)
+          .filter(([, td]) => td.tokenType === 'companion' && (td as CompanionData).claimedBy === state.playerId)
+          .map(([id, td]) => ({ id, data: td as CompanionData }))
+      : [];
+
+    // Find claimed storage tokens
+    const storageTokenEntries = state.playerId
+      ? Object.entries(state.allTokensMap)
+          .filter(([, td]) => td.tokenType === 'storage' && (td as StorageData).claimedBy === state.playerId)
+          .map(([id, td]) => ({ id, data: td as StorageData }))
       : [];
 
     return (
@@ -298,67 +324,118 @@ export default function App() {
             </div>
           )}
 
-          {/* Incoming trade requests for this player */}
-          {!state.isGM && state.roomData && state.playerId && (() => {
-            const myTokenIds = Object.entries(state.allTokensMap)
-              .filter(([, td]) => td.tokenType === 'player' && (td as PlayerData).ownerId === state.playerId)
-              .map(([id]) => id);
-            const incoming = (state.roomData.playerTradeRequests || []).filter(
-              (r) => r.status === 'pending_approval' && myTokenIds.includes(r.targetTokenId)
-            );
-            if (incoming.length === 0) return null;
-            return (
-              <div style={{ marginBottom: 12 }}>
-                <div className="section-header" style={{ color: 'var(--color-warning)' }}>💱 Incoming Trade Requests</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {incoming.map((req) => (
-                    <div key={req.id} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-warning)', borderRadius: 6, padding: 10, fontSize: 12 }}>
-                      <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
-                        <span style={{ fontSize: 16 }}>💱</span> {req.initiatorName} wants to trade with {req.targetName}!
-                      </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => {
-                            const updated = {
-                              ...state.roomData!,
-                              playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
-                                r.id === req.id ? { ...r, status: 'active' as const } : r
-                              ),
-                            };
-                            handleRoomUpdate(updated);
-                          }}
-                        >
-                          ✅ Accept
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => {
-                            const updated = {
-                              ...state.roomData!,
-                              playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
-                                r.id === req.id ? { ...r, status: 'denied' as const } : r
-                              ),
-                            };
-                            handleRoomUpdate(updated);
-                            // Auto-clean denied requests after 10s
-                            setTimeout(() => {
-                              handleRoomUpdate({
-                                ...updated,
-                                playerTradeRequests: (updated.playerTradeRequests || []).filter((r) => r.id !== req.id),
-                              });
-                            }, 10000);
-                          }}
-                        >
-                          ❌ Deny
-                        </button>
+          {/* Claimed Companion Tokens */}
+          {companionTokenEntries.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="section-header">🐾 Your Companion{companionTokenEntries.length > 1 ? 's' : ''}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {companionTokenEntries.map(({ id, data: companion }) => (
+                  <button
+                    key={id}
+                    className="btn btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', textAlign: 'left', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                    onClick={async () => {
+                      try { await OBR.player.select([id]); } catch (e) { console.warn('Could not select companion token:', e); }
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--color-border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dark)' }}>
+                      {(companion.imageUrl || state.tokenImagesMap[id]) ? (
+                        <img src={companion.imageUrl || state.tokenImagesMap[id]} alt={companion.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : <span style={{ fontSize: 18 }}>🐾</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: 13 }}>{companion.name || 'Unnamed'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                        Companion{companion.size ? ` · ${companion.size.charAt(0).toUpperCase() + companion.size.slice(1)}` : ''} · {companion.currentHp}/{companion.maxHp} HP
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </button>
+                ))}
               </div>
-            );
-          })()}
+            </div>
+          )}
+
+          {/* Claimed Storage Tokens */}
+          {storageTokenEntries.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="section-header">📦 Your Storage{storageTokenEntries.length > 1 ? ' Containers' : ''}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {storageTokenEntries.map(({ id, data: storage }) => (
+                  <button
+                    key={id}
+                    className="btn btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', textAlign: 'left', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                    onClick={async () => {
+                      try { await OBR.player.select([id]); } catch (e) { console.warn('Could not select storage token:', e); }
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--color-border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface-dark)', fontSize: 18 }}>
+                      📦
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: 13 }}>{storage.name || 'Unnamed'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                        {storage.storageType} · {storage.locked ? '🔒 Locked' : 'Unlocked'}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Incoming trade requests for this player */}
+          {incomingTradeRequests.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="section-header" style={{ color: 'var(--color-warning)' }}>💱 Incoming Trade Requests</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {incomingTradeRequests.map((req) => (
+                  <div key={req.id} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-warning)', borderRadius: 6, padding: 10, fontSize: 12 }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: 6 }}>
+                      <span style={{ fontSize: 16 }}>💱</span> {req.initiatorName} wants to trade with {req.targetName}!
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-sm btn-success"
+                        onClick={() => {
+                          const updated = {
+                            ...state.roomData!,
+                            playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
+                              r.id === req.id ? { ...r, status: 'active' as const } : r
+                            ),
+                          };
+                          handleRoomUpdate(updated);
+                        }}
+                      >
+                        ✅ Accept
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => {
+                          const updated = {
+                            ...state.roomData!,
+                            playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
+                              r.id === req.id ? { ...r, status: 'denied' as const } : r
+                            ),
+                          };
+                          handleRoomUpdate(updated);
+                          // Auto-clean denied requests after 10s
+                          setTimeout(() => {
+                            handleRoomUpdate({
+                              ...updated,
+                              playerTradeRequests: (updated.playerTradeRequests || []).filter((r) => r.id !== req.id),
+                            });
+                          }, 10000);
+                        }}
+                      >
+                        ❌ Deny
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {state.isGM && state.roomData && (state.roomData.pendingMerchantTrades || []).length > 0 && (
             <div style={{ marginBottom: 12 }}>
@@ -505,6 +582,48 @@ export default function App() {
             ✕ Close
           </button>
         </div>
+      )}
+      {/* Floating trade request notification (shown when a token IS selected) */}
+      {incomingTradeRequests.length > 0 && (
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
+            display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 12px',
+            background: 'var(--color-bg)',
+            borderTop: '2px solid var(--color-warning)',
+          }}>
+            {incomingTradeRequests.map((req) => (
+              <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+                <span>💱 <strong>{req.initiatorName}</strong> wants to trade with <strong>{req.targetName}</strong>!</span>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button className="btn btn-sm btn-success"
+                    onClick={() => {
+                      handleRoomUpdate({
+                        ...state.roomData!,
+                        playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
+                          r.id === req.id ? { ...r, status: 'active' as const } : r
+                        ),
+                      });
+                    }}>✅ Accept</button>
+                  <button className="btn btn-sm btn-danger"
+                    onClick={() => {
+                      const updated = {
+                        ...state.roomData!,
+                        playerTradeRequests: (state.roomData!.playerTradeRequests || []).map((r) =>
+                          r.id === req.id ? { ...r, status: 'denied' as const } : r
+                        ),
+                      };
+                      handleRoomUpdate(updated);
+                      setTimeout(() => {
+                        handleRoomUpdate({
+                          ...updated,
+                          playerTradeRequests: (updated.playerTradeRequests || []).filter((r) => r.id !== req.id),
+                        });
+                      }, 10000);
+                    }}>❌ Deny</button>
+                </div>
+              </div>
+            ))}
+          </div>
       )}
       <TokenSelector
         itemId={state.selectedItemId}

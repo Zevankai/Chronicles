@@ -7,8 +7,8 @@ import { ConditionGrid } from '../common/ConditionBadge';
 import { CoinDisplay } from '../common/CoinDisplay';
 import { ItemRepositorySearch } from '../common/ItemRepositorySearch';
 import { GMTab } from '../player/GMTab';
-import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS, COMPANION_SIZE_CAPACITY, COMPANION_SIZE_MAX_ANIMAL_AUX } from '../../constants';
-import { getInventoryWeight, generateId } from '../../utils';
+import { ATTRIBUTES, ITEM_CATEGORY_WEIGHTS, COMPANION_SIZE_CAPACITY, COMPANION_SIZE_MAX_ANIMAL_AUX, COMPANION_SIZE_BASE_CAPACITY } from '../../constants';
+import { getInventoryWeight, generateId, getCompanionCapacity } from '../../utils';
 
 const DOUBLE_CLICK_DELAY_MS = 220;
 
@@ -32,8 +32,9 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, allowPlayer
     onUpdate({ ...companion, [key]: value });
 
   const totalWeight = getInventoryWeight(companion.inventory);
-  const weightPct = companion.carryCapacity > 0
-    ? Math.min(100, (totalWeight / companion.carryCapacity) * 100)
+  const effectiveCapacity = getCompanionCapacity(companion);
+  const weightPct = effectiveCapacity > 0
+    ? Math.min(100, (totalWeight / effectiveCapacity) * 100)
     : 0;
 
   const tabs = [
@@ -77,12 +78,14 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, allowPlayer
         >
           <option value="tiny">Tiny (max 2u — squirrel/mouse)</option>
           <option value="small">Small (max 6u — hawk/cat)</option>
-          <option value="medium">Medium (max 60u — wolf/panther)</option>
-          <option value="large">Large (max 500u — horse/direwolf)</option>
+          <option value="medium">Medium (5u base + animal auxiliary bags — wolf/panther)</option>
+          <option value="large">Large (20u base + animal auxiliary bags — horse/direwolf)</option>
         </select>
         {companion.size && (
           <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
-            Max {COMPANION_SIZE_CAPACITY[companion.size]}u carry · {COMPANION_SIZE_MAX_ANIMAL_AUX[companion.size]} animal auxiliary bag{COMPANION_SIZE_MAX_ANIMAL_AUX[companion.size] !== 1 ? 's' : ''} allowed
+            {COMPANION_SIZE_MAX_ANIMAL_AUX[companion.size] > 0
+              ? `Base ${COMPANION_SIZE_BASE_CAPACITY[companion.size] ?? 5}u · up to ${COMPANION_SIZE_MAX_ANIMAL_AUX[companion.size]} animal auxiliary bag(s)`
+              : `Max ${COMPANION_SIZE_CAPACITY[companion.size]}u carry · no auxiliary bags`}
           </div>
         )}
       </div>
@@ -137,7 +140,7 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, allowPlayer
       <div style={{ marginBottom: 6 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
           <span className="field-label">Carry Weight</span>
-          <span>{totalWeight.toFixed(1)} / {companion.carryCapacity} units</span>
+          <span>{totalWeight.toFixed(1)} / {effectiveCapacity} units</span>
         </div>
         <div className="encumbrance-bar">
           <div
@@ -145,6 +148,13 @@ export function CompanionToken({ companion, onUpdate, isGM, canEdit, allowPlayer
             style={{ width: `${weightPct}%` }}
           />
         </div>
+        {(companion.size === 'medium' || companion.size === 'large') && (
+          <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+            {companion.inventory.filter((i) => i.category === 'Animal Auxiliary').length === 0
+              ? '⚠ No animal auxiliary bags — add bags to inventory to increase carry capacity'
+              : `🐾 ${companion.inventory.filter((i) => i.category === 'Animal Auxiliary').length} auxiliary bag(s) equipped`}
+          </div>
+        )}
       </div>
 
       <CoinDisplay

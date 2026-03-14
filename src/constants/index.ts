@@ -384,6 +384,14 @@ export const COMPANION_SIZE_CAPACITY: Record<string, number> = {
   large: 500,
 };
 
+/** Base carry capacity without any animal auxiliary bags equipped (for medium/large). */
+export const COMPANION_SIZE_BASE_CAPACITY: Record<string, number> = {
+  tiny: 2,
+  small: 6,
+  medium: 5,
+  large: 20,
+};
+
 export const COMPANION_SIZE_MAX_ANIMAL_AUX: Record<string, number> = {
   tiny: 0,
   small: 0,

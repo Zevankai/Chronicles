@@ -83,6 +83,7 @@ function ItemEditForm({
   const isShield = draft.category === 'Shield';
   const isBag = draft.category === 'Bag';
   const isAux = draft.category === 'Auxiliary';
+  const isAnimalAux = draft.category === 'Animal Auxiliary';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -204,6 +205,18 @@ function ItemEditForm({
                     );
                   })}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Animal Auxiliary bag capacity */}
+          {isAnimalAux && (
+            <div>
+              <label className="field-label">Unit Capacity</label>
+              <input type="number" value={draft.unitCapacity ?? ''} placeholder="e.g. 30" min={1}
+                onChange={(e) => update('unitCapacity', e.target.value ? parseInt(e.target.value) : undefined)} />
+              <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                How many units of weight this animal auxiliary bag can hold
               </div>
             </div>
           )}

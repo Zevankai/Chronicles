@@ -48,6 +48,7 @@ export function CalendarTab({ calendar, weather, events = [], onCalendarChange, 
   const [eventDay, setEventDay] = useState(1);
   const [showEventDetail, setShowEventDetail] = useState<CalendarEvent | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const dateStr = formatCalendarDate(calendar);
   const timeStr = formatTime(calendar.currentHour, calendar.currentMinute);
@@ -206,6 +207,7 @@ export function CalendarTab({ calendar, weather, events = [], onCalendarChange, 
                 key={i}
                 onClick={() => {
                   if (!d) return;
+                  setSelectedDay(selectedDay === d ? null : d);
                   if (isGM && onCalendarChange && isCurrentMonth) {
                     onCalendarChange({ ...calendar, currentDay: d });
                   } else if (isGM && showAddEvent === false) {
@@ -217,11 +219,11 @@ export function CalendarTab({ calendar, weather, events = [], onCalendarChange, 
                   textAlign: 'center',
                   padding: '3px 2px',
                   borderRadius: 3,
-                  background: isCurrentDay ? 'var(--color-primary)' : 'transparent',
+                  background: isCurrentDay ? 'var(--color-primary)' : (d === selectedDay ? 'var(--color-surface)' : 'transparent'),
                   color: isCurrentDay ? 'white' : d ? 'var(--color-text)' : 'transparent',
-                  cursor: d && isGM ? 'pointer' : 'default',
-                  border: d ? '1px solid var(--color-border-light)' : 'none',
-                  fontWeight: isCurrentDay ? 'bold' : 'normal',
+                  cursor: d ? 'pointer' : 'default',
+                  border: d ? `1px solid ${d === selectedDay ? 'var(--color-primary)' : 'var(--color-border-light)'}` : 'none',
+                  fontWeight: isCurrentDay || d === selectedDay ? 'bold' : 'normal',
                   position: 'relative',
                   minHeight: 28,
                 }}
@@ -233,14 +235,12 @@ export function CalendarTab({ calendar, weather, events = [], onCalendarChange, 
                       <span
                         key={ev.id}
                         title={ev.title}
-                        onClick={(e) => { e.stopPropagation(); setShowEventDetail(ev); }}
                         style={{
                           display: 'inline-block',
                           width: 5,
                           height: 5,
                           borderRadius: '50%',
                           background: EVENT_COLORS[ev.type],
-                          cursor: 'pointer',
                           flexShrink: 0,
                         }}
                       />
@@ -251,6 +251,61 @@ export function CalendarTab({ calendar, weather, events = [], onCalendarChange, 
             );
           })}
         </div>
+
+        {/* Selected day events panel */}
+        {selectedDay !== null && (() => {
+          const dayEvs = eventsByDay[selectedDay] || [];
+          return (
+            <div style={{
+              marginTop: 8,
+              padding: '8px 10px',
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-primary)',
+              borderRadius: 6,
+              fontSize: 12,
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 6, color: 'var(--color-primary)' }}>
+                📅 {displayMonth?.name} {selectedDay}, {calendar.currentYear} {calendar.yearSuffix}
+              </div>
+              {dayEvs.length === 0 ? (
+                <div style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>No events on this day.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {dayEvs.map((ev) => (
+                    <div key={ev.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: EVENT_COLORS[ev.type], display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ fontWeight: 'bold' }}>{ev.title}</span>
+                        <span style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{EVENT_LABELS[ev.type]}</span>
+                        {!ev.visibleToPlayers && <span style={{ fontSize: 10, color: 'var(--color-warning)' }}>🔒</span>}
+                      </div>
+                      {ev.description && (
+                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 14 }}>{ev.description}</div>
+                      )}
+                      {isGM && (
+                        <div style={{ display: 'flex', gap: 4, marginLeft: 14 }}>
+                          <button className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 6px' }}
+                            onClick={() => { setEditingEvent({ ...ev }); }}>✏️ Edit</button>
+                          <button className="btn btn-sm btn-danger" style={{ fontSize: 10, padding: '1px 6px' }}
+                            onClick={() => deleteEvent(ev.id)}>🗑</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isGM && onEventsChange && (
+                <button
+                  className="btn btn-sm btn-secondary"
+                  style={{ marginTop: 8, width: '100%', fontSize: 11 }}
+                  onClick={() => { setEventDay(selectedDay); setShowAddEvent(true); }}
+                >
+                  + Add Event on Day {selectedDay}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Event Legend */}
         <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10 }}>
