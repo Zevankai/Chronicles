@@ -7,7 +7,7 @@ interface TradeParticipant {
   name: string;
   inventory: Item[];
   coins: Coins;
-  type: 'player' | 'companion' | 'storage' | 'monster';
+  type: 'player' | 'companion' | 'storage' | 'monster' | 'merchant';
 }
 
 interface TradeModalProps {
@@ -15,6 +15,8 @@ interface TradeModalProps {
   target: TradeParticipant;
   /** Whether the current user is the trade initiator (left side). Defaults to true. */
   currentIsInitiator?: boolean;
+  /** Whether both tokens are owned/claimed by the same player — skips dual confirmation. */
+  samePlayerOwned?: boolean;
   onConfirm: (
     initiatorGives: { items: { item: Item; qty: number }[]; coins: Coins },
     targetGives: { items: { item: Item; qty: number }[]; coins: Coins }
@@ -78,7 +80,7 @@ function ItemDetailModal({ item, onClose }: { item: Item; onClose: () => void })
   );
 }
 
-export function TradeModal({ initiator, target, currentIsInitiator = true, onConfirm, onClose }: TradeModalProps) {
+export function TradeModal({ initiator, target, currentIsInitiator = true, samePlayerOwned = false, onConfirm, onClose }: TradeModalProps) {
   const [initiatorItems, setInitiatorItems] = useState<{ item: Item; qty: number }[]>([]);
   const [targetItems, setTargetItems] = useState<{ item: Item; qty: number }[]>([]);
   const [initiatorCoins, setInitiatorCoins] = useState<Coins>({ cp: 0, sp: 0, gp: 0, pp: 0 });
@@ -129,6 +131,9 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
   };
 
   const bothConfirmed = initiatorConfirmed && targetConfirmed;
+  // For merchant trades or same-player trades, we don't need dual confirmation
+  const isMerchantTrade = target.type === 'merchant';
+  const needsDualConfirmation = !isMerchantTrade && !samePlayerOwned;
 
   const renderCoins = (coins: Coins) => (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
@@ -159,118 +164,141 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
     isMySide: boolean,
     confirmed: boolean,
     onToggleConfirm: () => void
-  ) => (
-    <div className="trade-participant">
-      <div className="section-header">{participant.name}</div>
+  ) => {
+    // For merchant trades: both sides are interactive (player can pick merchant items to buy)
+    // For same-player trades: both sides are interactive
+    const canInteract = isMySide || isMerchantTrade || samePlayerOwned;
+    const sideLabel = isMerchantTrade
+      ? (isMySide ? 'Your items to sell:' : 'Click item to select for purchase:')
+      : (canInteract ? 'Click item to offer:' : 'View only (🔍 to inspect):');
+    return (
+      <div className="trade-participant">
+        <div className="section-header">{participant.name}</div>
 
-      <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6 }}>
-        {isMySide ? 'Click item to offer:' : 'View only (🔍 to inspect):'}
-      </div>
+        <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6 }}>
+          {sideLabel}
+        </div>
 
-      {/* Source inventory */}
-      <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 8 }}>
-        {participant.inventory.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '2px 4px',
-              borderRadius: 3,
-              fontSize: 12,
-              background: 'var(--color-bg)',
-              marginBottom: 2,
-            }}
-          >
-            <span
-              style={{
-                cursor: isMySide ? 'pointer' : 'default',
-                flex: 1,
-                color: isMySide ? 'var(--color-text)' : 'var(--color-text-muted)',
-              }}
-              onClick={isMySide ? () => addItem(item, setItems, items) : undefined}
-              title={isMySide ? 'Click to add to offer' : undefined}
-            >
-              {item.name}
-            </span>
-            <span className="text-muted" style={{ marginRight: 4 }}>×{item.quantity}</span>
-            <button
-              className="btn-icon"
-              title="Inspect item"
-              style={{ fontSize: 11 }}
-              onClick={(e) => { e.stopPropagation(); setInspectItem(item); }}
-            >
-              🔍
-            </button>
+        {/* Source inventory */}
+        <div style={{ maxHeight: 120, overflowY: 'auto', marginBottom: 8 }}>
+          {participant.inventory.map((item) => {
+            const isSelected = items.some((x) => x.item.id === item.id);
+            return (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '2px 4px',
+                  borderRadius: 3,
+                  fontSize: 12,
+                  background: isSelected ? 'rgba(120,80,30,0.15)' : 'var(--color-bg)',
+                  marginBottom: 2,
+                  cursor: canInteract ? 'pointer' : 'default',
+                  border: isSelected ? '1px solid var(--color-primary)' : '1px solid transparent',
+                }}
+                onClick={canInteract ? () => addItem(item, setItems, items) : undefined}
+              >
+                <span
+                  style={{
+                    flex: 1,
+                    color: canInteract ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  }}
+                  title={canInteract ? 'Click to add to offer' : undefined}
+                >
+                  {isSelected && <span style={{ marginRight: 4 }}>✅</span>}
+                  {item.name}
+                </span>
+                <span className="text-muted" style={{ marginRight: 4 }}>×{item.quantity}</span>
+                <button
+                  className="btn-icon"
+                  title="Inspect item"
+                  style={{ fontSize: 11 }}
+                  onClick={(e) => { e.stopPropagation(); setInspectItem(item); }}
+                >
+                  🔍
+                </button>
+              </div>
+            );
+          })}
+          {participant.inventory.length === 0 && (
+            <div className="text-muted" style={{ fontSize: 11 }}>No items</div>
+          )}
+        </div>
+
+        {/* Offered items */}
+        <div className="field-label">{isMerchantTrade && !isMySide ? 'Selected to purchase:' : 'Offering:'}</div>
+        {items.length === 0 ? (
+          <div className="text-muted" style={{ fontSize: 11 }}>Nothing</div>
+        ) : (
+          items.map((x) => (
+            <div key={x.item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+              <span>{x.item.name} ×{x.qty}</span>
+              <div style={{ display: 'flex', gap: 2 }}>
+                <button className="btn-icon" style={{ fontSize: 11 }} onClick={() => setInspectItem(x.item)}>🔍</button>
+                {canInteract && (
+                  <button className="btn-icon" onClick={() => removeItem(x.item.id, setItems, items)}>✕</button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+
+        {canInteract && (
+          <div style={{ marginTop: 6 }}>
+            <div className="field-label">Coins to offer:</div>
+            {renderCoins(coins)}
+            <CoinDisplay coins={coins} onChange={(c) => handleCoinsChange(c, setCoins)} />
           </div>
-        ))}
-        {participant.inventory.length === 0 && (
-          <div className="text-muted" style={{ fontSize: 11 }}>No items</div>
+        )}
+        {!canInteract && coins && (
+          <div style={{ marginTop: 6 }}>
+            <div className="field-label">Coins offered:</div>
+            {renderCoins(coins)}
+          </div>
+        )}
+
+        {/* Per-side confirmation — only shown for standard player-to-player trades */}
+        {needsDualConfirmation && (
+          <div style={{ marginTop: 8, borderTop: '1px solid var(--color-border-light)', paddingTop: 6 }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: isMySide ? 'pointer' : 'not-allowed',
+              fontSize: 12,
+              color: confirmed ? 'var(--color-success)' : 'var(--color-text)',
+            }}>
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={isMySide ? onToggleConfirm : undefined}
+                disabled={!isMySide}
+              />
+              {confirmed ? '✅ Confirmed' : isMySide ? 'Confirm offer' : '🔒 Waiting for other party'}
+            </label>
+          </div>
         )}
       </div>
+    );
+  };
 
-      {/* Offered items */}
-      <div className="field-label">Offering:</div>
-      {items.length === 0 ? (
-        <div className="text-muted" style={{ fontSize: 11 }}>Nothing</div>
-      ) : (
-        items.map((x) => (
-          <div key={x.item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-            <span>{x.item.name} ×{x.qty}</span>
-            <div style={{ display: 'flex', gap: 2 }}>
-              <button className="btn-icon" style={{ fontSize: 11 }} onClick={() => setInspectItem(x.item)}>🔍</button>
-              {isMySide && (
-                <button className="btn-icon" onClick={() => removeItem(x.item.id, setItems, items)}>✕</button>
-              )}
-            </div>
-          </div>
-        ))
-      )}
-
-      {isMySide && (
-        <div style={{ marginTop: 6 }}>
-          <div className="field-label">Coins to offer:</div>
-          {renderCoins(coins)}
-          <CoinDisplay coins={coins} onChange={(c) => handleCoinsChange(c, setCoins)} />
-        </div>
-      )}
-      {!isMySide && coins && (
-        <div style={{ marginTop: 6 }}>
-          <div className="field-label">Coins offered:</div>
-          {renderCoins(coins)}
-        </div>
-      )}
-
-      {/* Per-side confirmation */}
-      <div style={{ marginTop: 8, borderTop: '1px solid var(--color-border-light)', paddingTop: 6 }}>
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          cursor: isMySide ? 'pointer' : 'not-allowed',
-          fontSize: 12,
-          color: confirmed ? 'var(--color-success)' : 'var(--color-text)',
-        }}>
-          <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={isMySide ? onToggleConfirm : undefined}
-            disabled={!isMySide}
-          />
-          {confirmed ? '✅ Confirmed' : isMySide ? 'Confirm offer' : '🔒 Waiting for other party'}
-        </label>
-      </div>
-    </div>
-  );
+  const canExecute = needsDualConfirmation ? bothConfirmed : true;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <span className="modal-title">💱 Trade</span>
+          <span className="modal-title">💱 Trade{isMerchantTrade ? ` — ${target.name}` : ''}</span>
           <button className="btn-icon" onClick={onClose}>✕</button>
         </div>
+
+        {isMerchantTrade && (
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 8, padding: '4px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+            🛒 Select items from the merchant to purchase, and your own items to sell. Then click <strong>Confirm Trade</strong> to submit for GM approval.
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 12, alignItems: 'start' }}>
           {renderSide(
@@ -290,7 +318,7 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
           )}
         </div>
 
-        {!bothConfirmed && (
+        {needsDualConfirmation && !bothConfirmed && (
           <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--color-text-muted)', marginTop: 8 }}>
             Both parties must confirm before the trade can be executed.
           </div>
@@ -301,10 +329,10 @@ export function TradeModal({ initiator, target, currentIsInitiator = true, onCon
           <button
             className="btn btn-primary"
             onClick={handleConfirm}
-            disabled={!bothConfirmed}
-            title={!bothConfirmed ? 'Both parties must confirm' : undefined}
+            disabled={!canExecute}
+            title={!canExecute ? 'Both parties must confirm' : undefined}
           >
-            Execute Trade
+            {isMerchantTrade ? '🛒 Confirm Trade' : 'Execute Trade'}
           </button>
         </div>
       </div>

@@ -8,10 +8,22 @@ export interface ItemRepositorySearchProps {
   disabled?: boolean;
 }
 
+/** Parse a valueText string like "25 gp", "1,500 gp", "5 sp", "4 cp" into value + currency. */
+function parseValueText(valueText: string): { value?: number; valueCurrency?: 'cp' | 'sp' | 'gp' | 'pp' } {
+  if (!valueText) return {};
+  const match = valueText.trim().match(/^([\d,]+(?:\.\d+)?)\s*(cp|sp|gp|pp)$/i);
+  if (!match) return {};
+  const amount = parseFloat(match[1].replace(/,/g, ''));
+  const currency = match[2].toLowerCase() as 'cp' | 'sp' | 'gp' | 'pp';
+  return { value: Math.round(amount), valueCurrency: currency };
+}
+
 function entryToItem(entry: ItemRepositoryEntry): Item {
-  const { itemType: _itemType, valueText: _valueText, ...rest } = entry;
+  const { itemType: _itemType, valueText, ...rest } = entry;
+  const parsedValue = parseValueText(valueText);
   return {
     ...rest,
+    ...parsedValue,
     id: generateId(),
     quantity: 1,
     equipped: null,

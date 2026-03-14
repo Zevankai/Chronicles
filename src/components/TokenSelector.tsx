@@ -126,7 +126,7 @@ export function TokenSelector({ itemId, data, onUpdate, isGM, playerId, roomData
   switch (data.tokenType) {
     case 'player': {
       const player = data as PlayerData;
-      const isOwner = player.ownerId === playerId;
+      const isOwner = player.ownerId === playerId || player.claimedBy === playerId;
       return (
         <PlayerToken
           player={player}

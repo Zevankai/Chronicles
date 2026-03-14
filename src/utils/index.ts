@@ -27,6 +27,8 @@ import {
   SPELLCASTING_ABILITY,
   FULL_CASTER_SLOTS,
   WARLOCK_PACT_SLOTS,
+  COMPANION_SIZE_BASE_CAPACITY,
+  COMPANION_SIZE_MAX_ANIMAL_AUX,
 } from '../constants';
 
 // ============================================================
@@ -124,6 +126,24 @@ export function getPlayerCapacity(player: PlayerData): number {
   return equippedBag?.unitCapacity != null
     ? equippedBag.unitCapacity + DEFAULT_CAPACITY
     : DEFAULT_CAPACITY;
+}
+
+/**
+ * Compute effective carry capacity for a companion.
+ * For tiny/small: fixed capacity (no bags needed).
+ * For medium/large: base capacity + sum of Animal Auxiliary bag capacities in inventory
+ * (up to COMPANION_SIZE_MAX_ANIMAL_AUX limit).
+ */
+export function getCompanionCapacity(companion: { size?: string; inventory: Item[] }): number {
+  const size = companion.size ?? 'medium';
+  const base = COMPANION_SIZE_BASE_CAPACITY[size] ?? 5;
+  const maxAux = COMPANION_SIZE_MAX_ANIMAL_AUX[size] ?? 0;
+  if (maxAux === 0) return base;
+  const auxBags = companion.inventory
+    .filter((i) => i.category === 'Animal Auxiliary')
+    .slice(0, maxAux);
+  const auxCapacity = auxBags.reduce((sum, bag) => sum + (bag.unitCapacity ?? 0), 0);
+  return base + auxCapacity;
 }
 
 export function parseBodyWeight(player: PlayerData): number {

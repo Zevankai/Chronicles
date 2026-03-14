@@ -414,6 +414,24 @@ export function TradeSelector({
       return { cp: 0, sp: 0, gp: 0, pp: 0 };
     })();
 
+    // Determine if both tokens are owned by the same player
+    // (companion/storage claimed by player, or it's the GM controlling both sides)
+    const targetIsOwnedBySamePlayer = (() => {
+      if (selectedTarget.type === 'companion') {
+        const companion = selectedTarget.data as CompanionData;
+        return companion.claimedBy === playerId || companion.ownerId === playerId;
+      }
+      if (selectedTarget.type === 'storage') {
+        const storage = selectedTarget.data as StorageData;
+        return storage.claimedBy === playerId;
+      }
+      if (selectedTarget.type === 'player') {
+        const player = selectedTarget.data as PlayerData;
+        return player.ownerId === playerId;
+      }
+      return isGM; // GM can always trade freely
+    })();
+
     return (
       <TradeModal
         initiator={{
@@ -428,8 +446,9 @@ export function TradeSelector({
           name: selectedTarget.name,
           inventory: targetInventory,
           coins: targetCoins,
-          type: selectedTarget.type as 'player' | 'companion' | 'storage' | 'monster',
+          type: selectedTarget.type as 'player' | 'companion' | 'storage' | 'monster' | 'merchant',
         }}
+        samePlayerOwned={targetIsOwnedBySamePlayer}
         onConfirm={handleTradeConfirm}
         onClose={handleTradeClose}
       />
